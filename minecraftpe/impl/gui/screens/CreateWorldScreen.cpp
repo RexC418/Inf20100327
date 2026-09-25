@@ -113,7 +113,7 @@ int64_t CreateWorldScreen::getSeed() {
 	}
 	char* end = 0;
 	errno = 0;
-	long long parsed = std::strtoll(s.c_str(), &end, 10);
+	long long parsed = strtoll(s.c_str(), &end, 10);
 	if(end && *end == 0 && errno == 0) {
 		return static_cast<int64_t>(parsed);
 	}
