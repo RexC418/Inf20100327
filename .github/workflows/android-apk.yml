@@ -24,6 +24,11 @@ jobs:
           java-version: '17'
 
 
+      - name: Install legacy NDK host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libncurses5
+
       - name: Install Android build dependencies
         run: |
           SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager 2>/dev/null | head -n 1)"
