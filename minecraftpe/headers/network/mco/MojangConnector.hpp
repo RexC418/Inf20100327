@@ -1,0 +1,58 @@
+#pragma once
+#include <_types.h>
+#include <string>
+#include <memory>
+#include <unordered_map>
+#include <network/mco/MojangConnectionStatus.hpp>
+
+struct ThreadCollection;
+struct LoginInformation;
+struct MCOParser;
+struct Minecraft;
+struct Random;
+struct RestService;
+struct MCOServerListItem;
+
+struct MojangConnector{
+	std::shared_ptr<RestService> accountService;
+	std::shared_ptr<RestService> mcoService;
+	std::shared_ptr<ThreadCollection> threadCollection;
+	std::shared_ptr<LoginInformation> loginInformation;
+	std::string gameVersionNet;
+	MojangConnectionStatus status;
+	std::shared_ptr<MCOParser> mcoParser;
+	Minecraft* minecraft;
+	std::shared_ptr<std::unordered_map<long long, MCOServerListItem>> serverList;
+	bool_t serverCreationEnabled;
+	int8_t field_3D, field_3E, field_3F;
+	std::shared_ptr<Random> random;
+	std::string joinMCOPayload;
+	std::string serverKey;
+	bool_t serviceEnabled;
+	int8_t field_51, field_52, field_53;
+
+	MojangConnector(struct Minecraft*);
+	void clearLoginInformation();
+	std::shared_ptr<RestService> getAccountService();
+	MojangConnectionStatus getConnectionStatus();
+	std::string getEncryptedJoinDataString(long long, const std::string&, const std::string&);
+	const std::string* getJoinMCOPayload() const;
+	std::shared_ptr<LoginInformation> getLoginInformation();
+	std::shared_ptr<MCOParser> getMCOParser();
+	std::shared_ptr<std::unordered_map<long long, MCOServerListItem>> getMCOServerList();
+	std::shared_ptr<RestService> getMCOService();
+	std::string* getServerKey();
+	std::shared_ptr<ThreadCollection> getThreadCollection();
+	bool_t isMCOCreateServersEnabled();
+	bool_t isServiceEnabled() const;
+	void setLoginInformation(const LoginInformation&);
+	void setMCOCreateServersEnabled(bool_t);
+	void setMCOServerList(std::shared_ptr<std::unordered_map<long long, MCOServerListItem>>);
+	void setMCOServiceEnabled(bool_t);
+	void setPayload(const std::string&);
+	void setServerKey(const std::string&);
+	void setStatus(MojangConnectionStatus);
+	void updateUIThread() const;
+	std::string urlEncode(std::string) const;
+	~MojangConnector(){}
+};

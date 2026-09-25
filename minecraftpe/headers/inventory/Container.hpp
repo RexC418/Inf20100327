@@ -1,0 +1,33 @@
+#pragma once
+#include <_types.h>
+#include <vector>
+#include <string>
+#include <item/ItemInstance.hpp>
+struct Player;
+struct Container
+{
+	virtual ~Container(){}
+	virtual ItemInstance* getItem(int32_t) = 0;
+	virtual void setItem(int32_t, ItemInstance*) = 0;
+	virtual ItemInstance removeItem(int32_t, int32_t) = 0;
+	virtual std::string getName() const = 0;
+	virtual int32_t getContainerSize() const = 0;
+	virtual int32_t getMaxStackSize() const = 0;
+	virtual bool_t stillValid(Player*) = 0;
+	virtual void startOpen() = 0;
+	virtual void stopOpen() = 0;
+	virtual std::vector<ItemInstance> getSlotCopies() {
+		std::vector<ItemInstance> res;
+		ItemInstance v8;
+		for(int32_t v2 = 0; v2 < this->getContainerSize(); ++v2) {
+			ItemInstance* v5 = this->getItem(v2);
+			ItemInstance* v6;
+			if(v5) {
+				res.emplace_back(*v5);
+			} else {
+				res.emplace_back(v8);
+			}
+		}
+		return res;
+	}
+};

@@ -1,0 +1,51 @@
+#pragma once
+#include <_types.h>
+#include <Config.hpp>
+#include <vector>
+#include <string>
+#include <memory>
+#include <network/mco/RestRequestJob.hpp>
+
+#define vcvts_n_f32_s32(a2, a3) (float)((float)(a2) / (1 << (uint32_t)(a3)))
+#ifdef __WIN32__
+#define FUNC_ERRNO _errno2
+#define FUNC_MKDIR _mkdir2
+#else
+#define FUNC_ERRNO _errno
+#define FUNC_MKDIR _mkdir
+#endif
+struct RestRequestJob;
+struct Minecraft;
+
+double getTimeS();
+time_t getEpochTimeS();
+int32_t getTimeMs();
+int32_t getRemainingFileSize(FILE* file);
+void sleepMs(int32_t a1);
+
+template <typename T> void safeRemove(T*& p){
+	if(p){
+		delete p;
+		p = 0;
+	}
+}
+
+template <typename T> void safeStopAndRemove(T&);
+
+template <>
+inline void safeStopAndRemove(std::shared_ptr<RestRequestJob>& a2) {
+	if(a2.get()) {
+		a2->stop();
+		a2 = std::shared_ptr<RestRequestJob>(); //TODO check
+	}
+}
+
+void splitString(const std::string&, char_t, std::vector<std::string>&);
+bool_t exists(const char_t* a1);
+int recursiveDelete(const char_t*);
+bool_t DeleteDirectory(const std::string& a1, bool_t);
+int FUNC_ERRNO();
+int FUNC_MKDIR(const char*);
+bool createFolderIfNotExists(const char*);
+bool createTree(const char*, const char**, int);
+int getRawTimeS();

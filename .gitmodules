@@ -1,0 +1,12 @@
+[submodule "glm"]
+	path = glm
+	url = https://github.com/g-truc/glm
+[submodule "jsoncpp"]
+	path = jsoncpp
+	url = https://github.com/oldminecraftcommunity/jsoncpp
+[submodule "RakNet"]
+	path = RakNet
+	url = https://github.com/oldminecraftcommunity/RakNet
+[submodule "OpenAES"]
+	path = OpenAES
+	url = https://github.com/oldminecraftcommunity/OpenAES

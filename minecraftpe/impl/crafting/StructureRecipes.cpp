@@ -1,0 +1,1 @@
+#include <crafting/StructureRecipes.hpp>

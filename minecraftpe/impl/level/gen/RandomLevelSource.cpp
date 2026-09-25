@@ -1,0 +1,832 @@
+#include <level/gen/RandomLevelSource.hpp>
+#include <level/BiomeSource.hpp>
+#include <level/Level.hpp>
+#include <level/MobSpawner.hpp>
+#include <level/chunk/LevelChunk.hpp>
+#include <level/gen/feature/CactusFeature.hpp>
+#include <level/gen/feature/ClayFeature.hpp>
+#include <level/gen/feature/FlowerFeature.hpp>
+#include <level/gen/feature/OreFeature.hpp>
+#include <level/gen/feature/ReedsFeature.hpp>
+#include <level/gen/feature/SpringFeature.hpp>
+#include <math.h>
+#include <tile/HeavyTile.hpp>
+#include <tile/material/Material.hpp>
+#include <cpputils.hpp>
+#include <algorithm>
+
+RandomLevelSource::RandomLevelSource(struct Level* a2, int64_t a3, int32_t a4, bool a5) //long, int, bool
+	: random(a3),
+	infdevRandom(a3),
+	infdevNoiseGen1(infdevRandom,16),
+	infdevNoiseGen2(infdevRandom,16),
+	infdevNoiseGen3(infdevRandom,8),
+	infdevMobSpawnerNoise(0),
+	octave16noise_1(&this->random, 16)
+	, octave16noise_2(&this->random, 16)
+	, octave8noise_1(&this->random, 8)
+	, octave4noise_1(&this->random, 4)
+	, octave4noise_2(&this->random, 4)
+	, octave10noise_1(&this->random, 10)
+	, octave16noise_3(&this->random, 16)
+	, treeNoise(&this->random, 8) {
+	// Infdev 20100327 consumes three throwaway octave generators (4, 4, 5)
+	// before constructing the 5-octave mob/tree density generator.
+	InfdevNoiseOctaves infdevUnused1(this->infdevRandom, 4);
+	InfdevNoiseOctaves infdevUnused2(this->infdevRandom, 4);
+	InfdevNoiseOctaves infdevUnused3(this->infdevRandom, 5);
+	this->infdevMobSpawnerNoise = new InfdevNoiseOctaves(this->infdevRandom, 5);
+	this->field_4 = 0;
+
+	this->level = a2;
+	this->field_72CC = a5;
+	this->interpolationNoises = 0;
+	this->upperInterpolationNoises = 0;
+	this->lowerInterpolationNoises = 0;
+	this->biomeNoises = 0;
+	this->depthNoises = 0;
+	this->field_7EE8 = 0;
+	this->field_7EEC = 0;
+	for(int32_t v8 = 0; v8 != 32; ++v8) {
+		for(int32_t i = 0; i != 32; ++i) {
+			this->field_9E0[v8 * 32 + i] = 0;
+		}
+	}
+	this->field_72D0 = new float[1024];
+}
+void RandomLevelSource::buildSurfaces(int32_t a2, int32_t a3, uint8_t* a4, struct Biome** a5) {
+	float v5;			 // s17
+	float v8;			 // s16
+	int32_t v9;			 // r12
+	float v10;			 // s17
+	int32_t v11;		 // r6
+	int32_t v12;		 // r4
+	float f;			 // r0
+	float v14;			 // s18
+	float v15;			 // s17
+	float f1;			 // r0
+	float v17;			 // s22
+	float v18;			 // s18
+	float f2;			 // r0
+	int32_t fillerBlock; // r7
+	int32_t topBlock;	 // r3
+	uint8_t* v22;		 // r9
+	int32_t v23;		 // r1
+	int32_t blockID_low; // r1
+	int8_t v25;			 // r0
+	int32_t v26;		 // r11
+	int32_t v27;		 // [sp+20h] [bp-68h]
+	int32_t v28;		 // [sp+20h] [bp-68h]
+	int32_t v29;		 // [sp+24h] [bp-64h]
+	float* v30;			 // [sp+28h] [bp-60h]
+	Biome* v31;			 // [sp+2Ch] [bp-5Ch]
+	int32_t v32;		 // [sp+30h] [bp-58h]
+	int32_t v33;		 // [sp+34h] [bp-54h]
+	Biome** v34;		 // [sp+38h] [bp-50h]
+
+	v5 = (float)(16 * a2);
+	v8 = (float)(16 * a3);
+	this->octave4noise_1.getRegion(this->field_72D4, v5, v8, 0.0, 16, 16, 1, 0.03125, 0.03125, 1.0);
+	this->octave4noise_1.getRegion(this->field_76D4, v5, 109.01, v8, 16, 1, 16, 0.03125, 1.0, 0.03125);
+	this->octave4noise_2.getRegion(this->field_7AD4, v5, v8, 0.0, 16, 16, 1, 0.0625, 0.0625, 0.0625);
+
+	//taken from Minecraft013Server(which took it from some b1.4 mod+changes from 0.1.3)
+	//arm version produced weird results
+	//x86 version inlined random calls so the function is mess
+	for(int blockX = 0; blockX < 16; ++blockX) {
+		for(int blockZ = 0; blockZ < 16; ++blockZ) {
+			Biome* biome = a5[blockX + (blockZ * 16)];
+			bool z = this->field_72D4[blockX + (blockZ * 16)] + (this->random.nextFloat() * 0.2f) > 0.0f;
+			bool z2 = this->field_76D4[blockX + (blockZ * 16)] + (this->random.nextFloat() * 0.2f) > 3.0f;
+			int nextFloat = (int)((this->field_7AD4[blockX + (blockZ * 16)] / 3.0f) + 3.0f + (this->random.nextFloat() * 0.25f));
+			int i = -1;
+			int b = biome->topBlock;
+			int b2 = biome->fillerBlock;
+			for(int blockY = 127; blockY >= 0; --blockY) {
+				int index = (blockZ * 16 + blockX) * 128 + blockY;
+				if((this->random.genrand_int32() % 5) >= blockY) {
+					a4[index] = Tile::unbreakable->blockID;
+				} else {
+					int b3 = a4[index];
+					if(b3 == 0) {
+						i = -1;
+					} else if(b3 == Tile::rock->blockID) {
+						if(i == -1) {
+							if(nextFloat > 0) {
+								if(blockY >= 60 && blockY <= 65) {
+									b = biome->topBlock;
+									b2 = biome->fillerBlock;
+									if(z2) {
+										b = 0;
+										b2 = Tile::gravel->blockID;
+									}
+									if(z) {
+										b = Tile::sand->blockID;
+										b2 = Tile::sand->blockID;
+									}
+								}
+
+							} else {
+								b = 0;
+								b2 = Tile::rock->blockID;
+							}
+
+							if (blockY < 64 && b == 0) {
+								b = Tile::calmWater->blockID;
+							}
+							i = nextFloat;
+							if (blockY >= 63) {
+								a4[index] = b;
+							} else {
+								a4[index] = b2;
+							}
+						} else if (i > 0) {
+							--i;
+							a4[index] = b2;
+							if (i == 0 && b2 == Tile::sand->blockID) {
+								i = (this->random.genrand_int32() % 4);
+								b2 = Tile::sandStone->blockID;
+							}
+						}
+
+					}
+				}
+			}
+		}
+	}
+}
+void RandomLevelSource::calcWaterDepths(struct ChunkSource* a2, int32_t a3, int32_t a4) {
+	Level* level;  // r4
+	int32_t x;	   // r9
+	int32_t z;	   // r10
+	int32_t y;	   // r5
+	int32_t v8;	   // r6
+	int32_t v9;	   // r3
+	int32_t v10;   // r0
+	int32_t i;	   // r7
+	int32_t v12;   // r8
+	int32_t v13;   // r2
+	int32_t v14;   // [sp+8h] [bp-58h]
+	int32_t v15;   // [sp+Ch] [bp-54h]
+	int32_t v16;   // [sp+10h] [bp-50h]
+	int32_t v17;   // [sp+14h] [bp-4Ch]
+	int32_t v18;   // [sp+18h] [bp-48h]
+	int32_t xsub2; // [sp+1Ch] [bp-44h]
+	uint32_t v20;  // [sp+20h] [bp-40h]
+	int32_t v21;   // [sp+2Ch] [bp-34h]
+	uint32_t v22;  // [sp+30h] [bp-30h]
+
+	level = this->level;
+	x = 16 * a3 + 8;
+	v21 = 16 * a4;
+	v17 = 16;
+	do {
+		z = v21;
+		v15 = 0;
+		xsub2 = x - 2;
+		y = level->getSeaLevel();
+		do {
+			v8 = z + 7;
+			if(level->getHeightmap(x - 1, z + 7) <= 0 && (level->getHeightmap(xsub2, z + 7) > 0 || level->getHeightmap(x, z + 7) > 0 || level->getHeightmap(x - 1, z + 6) > 0 || level->getHeightmap(x - 1, z + 8) > 0) && (level->getTile(xsub2, y, z + 7) == Tile::calmWater->blockID && level->getData(xsub2, y, z + 7) <= 6 || level->getTile(x, y, z + 7) == Tile::calmWater->blockID && level->getData(x, y, z + 7) <= 6 || level->getTile(x - 1, y, z + 6) == Tile::calmWater->blockID && level->getData(x - 1, y, z + 6) <= 6 || level->getTile(x - 1, y, z + 8) == Tile::calmWater->blockID && level->getData(x - 1, y, z + 8) <= 6)) {
+				for(i = -5; i != 6; ++i) {
+					v14 = -5;
+					v22 = abs(i); //abs32(i);
+					v18 = x - 1 + i;
+					do {
+						v9 = v14;
+						if(v14 < 0) {
+							v9 = -v14;
+						}
+						v20 = v22 + v9;
+						if((int32_t)(v22 + v9) <= 5) {
+							v16 = v8 + v14;
+							if(level->getTile(v18, y, v8 + v14) == Tile::calmWater->blockID) {
+								v10 = level->getData(v18, y, v16);
+								if(v10 <= 6 && v10 < (int32_t)(6 - v20)) {
+									level->setData(v18, y, v16, 6 - v20, 4);
+								}
+							}
+						}
+						++v14;
+					} while(v14 != 6);
+				}
+				v12 = 0;
+				level->setTileAndDataNoUpdate(x - 1, y, z + 7, Tile::calmWater->blockID, 7);
+				while(v12 < y) {
+					v13 = v12++;
+					level->setTileAndDataNoUpdate(x - 1, v13, z + 7, Tile::calmWater->blockID, 8);
+				}
+			}
+			++z;
+			++v15;
+		} while(v15 != 16);
+		++x;
+		--v17;
+	} while(v17);
+}
+float* RandomLevelSource::getHeights(float* heights, int32_t chunkX, int32_t chunkY, int32_t chunkZ, int32_t scaleX, int32_t scaleY, int32_t scaleZ) {
+	float* rainfallNoises;	  // r11
+	float* temperatureNoises; // r10
+	float v14;				  // s17
+	int32_t v15;			  // r0
+	int32_t v16;			  // r3
+	int32_t v17;			  // r9
+	int32_t v18;			  // r10
+	int32_t v19;			  // r0
+	int32_t v20;			  // r11
+	int32_t i;				  // r12
+	float v22;				  // s8
+	int32_t v23;			  // r1
+	float v24;				  // s11
+	float v25;				  // s15
+	float v26;				  // s14
+	float v27;				  // s14
+	float v28;				  // s14
+	int32_t v29;			  // r1
+	int32_t v30;			  // r2
+	float v31;				  // s15
+	float v32;				  // s14
+	float v33;				  // s11
+	float v34;				  // s7
+	float v35;				  // s8
+	float v36;				  // s11
+	float* v37;				  // r4
+	int32_t v39;			  // [sp+24h] [bp-6Ch]
+	int32_t v40;			  // [sp+28h] [bp-68h]
+	float* v42;				  // [sp+3Ch] [bp-54h]
+	float* v43;				  // [sp+48h] [bp-48h]
+
+	rainfallNoises = this->level->getBiomeSource()->rainfallNoises;
+	temperatureNoises = this->level->getBiomeSource()->temperatureNoises;
+	this->biomeNoises = this->octave10noise_1.getRegion(this->biomeNoises, chunkX, chunkZ, scaleX, scaleZ, 1.121, 1.121, 0.5);
+	v14 = (float)chunkY;
+	this->depthNoises = this->octave16noise_3.getRegion(this->depthNoises, chunkX, chunkZ, scaleX, scaleZ, 200.0, 200.0, 0.5);
+	this->interpolationNoises = this->octave8noise_1.getRegion(this->interpolationNoises, (float)chunkX, v14, (float)chunkZ, scaleX, scaleY, scaleZ, 8.5552, 4.2776, 8.5552);
+	this->upperInterpolationNoises = this->octave16noise_1.getRegion(this->upperInterpolationNoises, (float)chunkX, v14, (float)chunkZ, scaleX, scaleY, scaleZ, 684.41, 684.41, 684.41);
+	this->lowerInterpolationNoises = this->octave16noise_2.getRegion(this->lowerInterpolationNoises, (float)chunkX, v14, (float)chunkZ, scaleX, scaleY, scaleZ, 684.41, 684.41, 684.41);
+	v40 = scaleY & ~(scaleY >> 31);
+	v15 = 17 * (16 / scaleX / 2);
+	v16 = 0;
+	v17 = 0;
+	v39 = 0;
+	v42 = &rainfallNoises[v15];
+	v43 = &temperatureNoises[v15];
+	v18 = 0;
+	while(v17 < scaleX) {
+		v19 = 0;
+		v20 = v18;
+		for(i = 0; i < scaleZ; ++i) {
+			v22 = 1.0 - (float)(v43[v16 + v19] * v42[v16 + v19]);
+			v23 = i + v39;
+			v24 = this->depthNoises[v23] / 8000.0;
+			v25 = (float)((float)(this->biomeNoises[v23] + 256.0) * 0.0019531) * (float)(1.0 - (float)((float)(v22 * v22) * (float)(v22 * v22)));
+			if(v25 > 1.0) {
+				v25 = 1.0;
+			}
+			if(v24 < 0.0) {
+				v24 = -(float)(v24 * 0.3);
+			}
+			v26 = (float)(v24 * 3.0) - 2.0;
+			if(v26 >= 0.0) {
+				if(v26 > 1.0) {
+					v26 = 1.0;
+				}
+				v28 = v26 * 0.125;
+				if(v25 < 0.0) {
+					v25 = 0.0;
+				}
+			} else {
+				v27 = v26 * 0.5;
+				if(v27 < -1.0) {
+					v27 = -1.0;
+				}
+				v25 = 0.0;
+				v28 = (float)(v27 / 1.4) * 0.5;
+			}
+			v29 = v20;
+			v30 = 0;
+			v31 = v25 + 0.5;
+			v32 = (float)((float)((float)(v28 * (float)scaleY) * 0.0625) * 4.0) + (float)((float)scaleY * 0.5);
+			while(v30 < scaleY) {
+				v33 = (float)((float)((float)v30 - v32) * 12.0) / v31;
+				v34 = (float)((float)(this->interpolationNoises[v29] / 10.0) + 1.0) * 0.5;
+				if(v33 < 0.0) {
+					v33 = v33 * 4.0;
+				}
+				v35 = this->upperInterpolationNoises[v29] * 0.0019531;
+				if(v34 >= 0.0) {
+					if(v34 > 1.0) {
+						v35 = this->lowerInterpolationNoises[v29] * 0.0019531;
+					} else {
+						v35 = v35 + (float)((float)((float)(this->lowerInterpolationNoises[v29] * 0.0019531) - v35) * v34);
+					}
+				}
+				v36 = v35 - v33;
+				if(scaleY - 3 <= v30) {
+					v36 = (float)((float)((float)(4 - scaleY + v30) / 3.0) * -10.0) + (float)(v36 * (float)(1.0 - (float)((float)(4 - scaleY + v30) / 3.0)));
+				}
+				++v30;
+				v37 = &heights[v29++];
+				*v37 = v36;
+			}
+			v20 += v40;
+			v19 += /*4 **/ (16 / scaleX);
+		}
+		++v17;
+		v18 += (scaleZ & ~(scaleZ >> 31)) * v40;
+		v16 += ((16 / scaleX) << 6) / 4;
+		v39 += scaleZ & ~(scaleZ >> 31);
+	}
+	return heights;
+}
+
+void RandomLevelSource::prepareHeights(int32_t a2, int32_t a3, uint8_t* a4, void* a5, float* a6) {
+	//XXX either ida(and ghidra) makes some terrible mistakes when decompiling arm stuff or it uses slightly different array filling algo
+	//XXX uses x86 version
+	float* heights;	  // ecx
+	float* v7;		  // edx
+	float* v8;		  // eax
+	float* v9;		  // ebp
+	float v10;		  // xmm3_4
+	int v11;		  // eax
+	float v12;		  // xmm2_4
+	int v13;		  // ecx
+	float v14;		  // xmm0_4
+	uint8_t* v15;	  // ecx
+	float v16;		  // xmm1_4
+	int v17;		  // edx
+	int v18;		  // esi
+	int v19;		  // eax
+	int v20;		  // eax
+	uint8_t* v21;	  // ecx
+	float v22;		  // xmm1_4
+	int v23;		  // edx
+	int v24;		  // eax
+	uint8_t* v25;	  // ecx
+	float v26;		  // xmm1_4
+	int v27;		  // edx
+	int v29;		  // eax
+	int v30;		  // [esp+28h] [ebp-74h]
+	int v31;		  // [esp+2Ch] [ebp-70h]
+	float v32;		  // [esp+34h] [ebp-68h]
+	float v33;		  // [esp+38h] [ebp-64h]
+	int v34;		  // [esp+3Ch] [ebp-60h]
+	float v35;		  // [esp+40h] [ebp-5Ch]
+	float v36;		  // [esp+44h] [ebp-58h]
+	int v37;		  // [esp+48h] [ebp-54h]
+	float v38;		  // [esp+4Ch] [ebp-50h]
+	float v39;		  // [esp+50h] [ebp-4Ch]
+	float v40;		  // [esp+54h] [ebp-48h]
+	float v41;		  // [esp+58h] [ebp-44h]
+	float* v42;		  // [esp+5Ch] [ebp-40h]
+	unsigned int v43; // [esp+64h] [ebp-38h]
+	int v44;		  // [esp+68h] [ebp-34h]
+	int v45;		  // [esp+6Ch] [ebp-30h]
+	int v46;		  // [esp+78h] [ebp-24h]
+
+	this->field_72D0 = heights = this->getHeights(this->field_72D0, 4 * a2, 0, 4 * a3, 5, 17, 5);
+	v34 = 0;
+	while(2) {
+		v44 = 85 * v34;
+		v45 = 85 * v34 + 340;
+		v42 = a6;
+		v46 = 0;
+		while(2) {
+			v43 = 0;
+			while(2) {
+				v7 = &heights[(v44 + v43) / 4];
+				v37 = 0;
+				v32 = *v7;
+				v33 = heights[(v44 + v43 + 68) / 4];
+				v8 = &heights[v43 / 4 + v45 / 4];
+				v35 = *v8;
+				v36 = heights[(v45 + v43 + 68)/4];
+				v31 = 2 * v43;
+				v38 = 0.125 * (float)(v7[1] - *v7);
+				v39 = 0.125 * (float)(v7[18] - v33);
+				v40 = 0.125 * (float)(v8[1] - *v8);
+				v41 = 0.125 * (float)(v8[18] - v36);
+				do {
+					v9 = v42;
+					v10 = v33;
+					v11 = 0;
+					v12 = v32;
+					do {
+						v13 = (v46 << 7) | v31 | ((v11 + v34) << 11);
+						v14 = (float)(v10 - v12) * 0.25;
+						if(v31 > 63) {
+							v15 = &a4[v13];
+							v16 = v12;
+							v17 = 0;
+							v18 = v11;
+							do {
+								v19 = 0;
+								if(v16 > 0.0) v19 = Tile::rock->blockID;
+								++v17;
+								*v15 = v19;
+								v15 += 128;
+								v16 = v16 + v14;
+							} while(v17 != 4);
+LABEL_11:
+							v20 = v18;
+							goto LABEL_12;
+						}
+						if(v31 == 63) {
+							v25 = &a4[v13];
+							v26 = v12;
+							v27 = 0;
+							v18 = v11;
+							do {
+								if(v9[v27] >= 0.5) {
+									v29 = Tile::calmWater->blockID;
+								} else {
+									v29 = Tile::ice->blockID;
+								}
+								if(v26 > 0.0) v29 = Tile::rock->blockID;
+								++v27;
+								*v25 = v29;
+								v25 += 128;
+								v26 = v26 + v14;
+							} while(v27 != 4);
+							goto LABEL_11;
+						}
+						v21 = &a4[v13];
+						v22 = v12;
+						v23 = 0;
+						v30 = v11;
+						do {
+							v24 = Tile::calmWater->blockID;
+							if(v22 > 0.0) v24 = Tile::rock->blockID;
+							++v23;
+							*v21 = v24;
+							v21 += 128;
+							v22 = v22 + v14;
+						} while(v23 != 4);
+						v20 = v30;
+LABEL_12:
+						v11 = v20 + 1;
+						v9 += 16;
+						v12 = v12 + (float)((float)(v35 - v32) * 0.25);
+						v10 = v10 + (float)((float)(v36 - v33) * 0.25);
+					} while(v11 != 4);
+					++v37;
+					++v31;
+					v32 = v32 + v38;
+					v33 = v33 + v39;
+					v35 = v35 + v40;
+					v36 = v36 + v41;
+				} while(v37 != 8);
+				v43 += 4;
+				if(v43 != 64) {
+					heights = this->field_72D0;
+					continue;
+				}
+				break;
+			}
+			v46 += 4;
+			v42 += 4;
+			if(v46 != 16) {
+				v45 += 68;
+				v44 += 68;
+				heights = this->field_72D0;
+				continue;
+			}
+			break;
+		}
+		v34 += 4;
+		a6 += 64;
+		if(v34 != 16) {
+			heights = this->field_72D0;
+			continue;
+		}
+		break;
+	}
+}
+
+RandomLevelSource::~RandomLevelSource() {
+	if(this->field_72D0) {
+		delete[] this->field_72D0;
+	}
+	if(this->interpolationNoises) {
+		delete[] this->interpolationNoises;
+	}
+
+	if(this->upperInterpolationNoises) {
+		delete[] this->upperInterpolationNoises;
+	}
+
+	if(this->lowerInterpolationNoises) {
+		delete[] this->lowerInterpolationNoises;
+	}
+
+	if(this->biomeNoises) {
+		delete[] this->biomeNoises;
+	}
+
+	if(this->depthNoises) {
+		delete[] this->depthNoises;
+	}
+
+	if(this->field_7EE8) {
+		delete[] this->field_7EE8;
+	}
+
+	if(this->field_7EEC) {
+		delete[] this->field_7EEC;
+	}
+	delete this->infdevMobSpawnerNoise;
+}
+bool_t RandomLevelSource::hasChunk(int32_t x, int32_t z) {
+	return 1;
+}
+double RandomLevelSource::initializeInfdevNoiseField(double x, double y, double z) {
+	double densityOffset = y * 4.0 - 64.0;
+	if (densityOffset < 0.0) densityOffset *= 3.0;
+
+	double selector = this->infdevNoiseGen3.generateNoiseOctaves(
+		x * 684.412 / 80.0,
+		y * 684.412 / 400.0,
+		z * 684.412 / 80.0) / 2.0;
+
+	double density;
+	if (selector < -1.0) {
+		density = this->infdevNoiseGen1.generateNoiseOctaves(
+			x * 684.412, y * 984.412, z * 684.412) / 512.0 - densityOffset;
+		density = std::max(-10.0, std::min(10.0, density));
+	} else if (selector > 1.0) {
+		density = this->infdevNoiseGen2.generateNoiseOctaves(
+			x * 684.412, y * 984.412, z * 684.412) / 512.0 - densityOffset;
+		density = std::max(-10.0, std::min(10.0, density));
+	} else {
+		double low = this->infdevNoiseGen1.generateNoiseOctaves(
+			x * 684.412, y * 984.412, z * 684.412) / 512.0 - densityOffset;
+		double high = this->infdevNoiseGen2.generateNoiseOctaves(
+			x * 684.412, y * 984.412, z * 684.412) / 512.0 - densityOffset;
+		low = std::max(-10.0, std::min(10.0, low));
+		high = std::max(-10.0, std::min(10.0, high));
+		density = low + (high - low) * ((selector + 1.0) / 2.0);
+	}
+	return density;
+}
+
+void RandomLevelSource::generateInfdevTerrain(int32_t chunkX, int32_t chunkZ, uint8_t* blocks) {
+	// Exact Infdev 20100327 ChunkProviderGenerate.provideChunk() layout:
+	// block index = (x << 11) | (z << 7) | y.
+	// Avoid signed left-shift UB for negative chunk coordinates.
+	for (int xCell = 0; xCell < 4; ++xCell) {
+		for (int zCell = 0; zCell < 4; ++zCell) {
+			double noise[33][4];
+			const double x = static_cast<double>(chunkX) * 4.0 + xCell;
+			const double z = static_cast<double>(chunkZ) * 4.0 + zCell;
+
+			for (int y = 0; y < 33; ++y) {
+				noise[y][0] = this->initializeInfdevNoiseField(x,     y, z);
+				noise[y][1] = this->initializeInfdevNoiseField(x,     y, z + 1.0);
+				noise[y][2] = this->initializeInfdevNoiseField(x + 1.0, y, z);
+				noise[y][3] = this->initializeInfdevNoiseField(x + 1.0, y, z + 1.0);
+			}
+
+			for (int yCell = 0; yCell < 32; ++yCell) {
+				double n00 = noise[yCell][0];
+				double n01 = noise[yCell][1];
+				double n10 = noise[yCell][2];
+				double n11 = noise[yCell][3];
+			double n00Next = noise[yCell + 1][0];
+				double n01Next = noise[yCell + 1][1];
+				double n10Next = noise[yCell + 1][2];
+				double n11Next = noise[yCell + 1][3];
+
+				for (int yStep = 0; yStep < 4; ++yStep) {
+					const double fy = static_cast<double>(yStep) / 4.0;
+					const double a = n00 + (n00Next - n00) * fy;
+					const double b = n01 + (n01Next - n01) * fy;
+					const double c = n10 + (n10Next - n10) * fy;
+					const double d = n11 + (n11Next - n11) * fy;
+
+					for (int zStep = 0; zStep < 4; ++zStep) {
+						const double fz = static_cast<double>(zStep) / 4.0;
+						const double e = a + (c - a) * fz;
+						const double g = b + (d - b) * fz;
+						const int blockX = zStep + (xCell << 2);
+						const int blockZ = zCell << 2;
+						int index = (blockX << 11) | (blockZ << 7) | (yCell << 2) | yStep;
+
+						for (int xStep = 0; xStep < 4; ++xStep) {
+							const double fx = static_cast<double>(xStep) / 4.0;
+							const double value = e + (g - e) * fx;
+							const int blockY = (yCell << 2) + yStep;
+							blocks[index] = value > 0.0
+								? static_cast<uint8_t>(Tile::rock->blockID)
+								: static_cast<uint8_t>(blockY < 64 ? Tile::calmWater->blockID : 0);
+							index += 128;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Exact Infdev surface pass: three dirt blocks below the grass/dirt top.
+	for (int x = 0; x < 16; ++x) {
+		for (int z = 0; z < 16; ++z) {
+			int index = (x << 11) | (z << 7) | 127;
+			int depth = -1;
+			for (int y = 127; y >= 0; --y, --index) {
+				if (blocks[index] == 0) {
+					depth = -1;
+				} else if (blocks[index] == Tile::rock->blockID) {
+					if (depth == -1) {
+						depth = 3;
+						blocks[index] = static_cast<uint8_t>(y >= 63 ? Tile::grass->blockID : Tile::dirt->blockID);
+					} else if (depth > 0) {
+						--depth;
+						blocks[index] = static_cast<uint8_t>(Tile::dirt->blockID);
+					}
+				}
+			}
+		}
+	}
+}
+
+struct LevelChunk* RandomLevelSource::getChunk(int32_t chunkX, int32_t chunkZ) {
+	uint32_t v5;		// r10
+	int32_t v6;			// r2
+	int32_t v9;			// r10
+	LevelChunk* chunk;	// r6
+	uint8_t* chunkData; // r8
+	Biome** v16;		// r10
+
+	v5 = (static_cast<uint64_t>(static_cast<uint32_t>(chunkX)) << 32) | static_cast<uint32_t>(chunkZ);
+	auto&& p = this->field_19E0.find(v5);
+	if(p != this->field_19E0.end()) {
+		return p->second;
+	}
+
+	this->random.setSeed(132899541 * chunkZ + 341872712 * chunkX);
+	chunkData = new uint8_t[0x8000u];
+	chunk = new LevelChunk(this->level, chunkData, chunkX, chunkZ);
+	this->field_19E0.insert({v5, chunk});
+
+	v16 = this->level->getBiomeSource()->getBiomeBlock(16 * chunkX, 16 * chunkZ, 16, 16);
+	this->generateInfdevTerrain(chunkX, chunkZ, chunkData);
+	chunk->recalcHeightmap();
+	return chunk;
+}
+
+struct LevelChunk* RandomLevelSource::create(int32_t x, int32_t z) {
+	return this->getChunk(x, z);
+}
+static double _D6E52C58 = 0;
+static float infdevSin(float value) {
+	static float table[65536];
+	static bool initialized = false;
+	if (!initialized) {
+		for (int i = 0; i < 65536; ++i)
+			table[i] = static_cast<float>(std::sin(static_cast<double>(i) * 6.28318530717958647692 / 65536.0));
+		initialized = true;
+	}
+	int index = static_cast<int>(value * 10430.378F) & 0xFFFF;
+	return table[index];
+}
+
+static float infdevCos(float value) {
+	static float table[65536];
+	static bool initialized = false;
+	if (!initialized) {
+		for (int i = 0; i < 65536; ++i)
+			table[i] = static_cast<float>(std::sin(static_cast<double>(i) * 6.28318530717958647692 / 65536.0));
+		initialized = true;
+	}
+	int index = (static_cast<int>(value * 10430.378F + 16384.0F)) & 0xFFFF;
+	return table[index];
+}
+
+void RandomLevelSource::generateInfdevOre(int32_t oreID, int32_t x, int32_t y, int32_t z) {
+	// Exact structure of Infdev 20100327 WorldGenMinable.generate().
+	// Keep the Java operation order and float/double conversions intact.
+	const float angle = this->infdevRandom.nextFloat() * static_cast<float>(M_PI);
+	const double x1 = static_cast<double>(static_cast<float>(x + 8) + infdevSin(angle) * 2.0F);
+	const double x2 = static_cast<double>(static_cast<float>(x + 8) - infdevSin(angle) * 2.0F);
+	const double z1 = static_cast<double>(static_cast<float>(z + 8) + infdevCos(angle) * 2.0F);
+	const double z2 = static_cast<double>(static_cast<float>(z + 8) - infdevCos(angle) * 2.0F);
+	const double y1 = static_cast<double>(y + this->infdevRandom.nextInt(3) + 2);
+	const double y2 = static_cast<double>(y + this->infdevRandom.nextInt(3) + 2);
+
+	for (int step = 0; step <= 16; ++step) {
+		const double px = x1 + (x2 - x1) * static_cast<double>(step) / 16.0D;
+		const double py = y1 + (y2 - y1) * static_cast<double>(step) / 16.0D;
+		const double pz = z1 + (z2 - z1) * static_cast<double>(step) / 16.0D;
+		const double randomWidth = this->infdevRandom.nextDouble();
+		const double width = static_cast<double>(infdevSin(static_cast<float>(step) / 16.0F * static_cast<float>(M_PI)) + 1.0F) * randomWidth + 1.0D;
+		const double depth = width;
+		const double halfWidth = width / 2.0D;
+		const double halfDepth = depth / 2.0D;
+
+		for (int bx = static_cast<int>(px - halfWidth); bx <= static_cast<int>(px + halfWidth); ++bx) {
+			for (int by = static_cast<int>(py - halfDepth); by <= static_cast<int>(py + halfDepth); ++by) {
+				for (int bz = static_cast<int>(pz - halfWidth); bz <= static_cast<int>(pz + halfWidth); ++bz) {
+					const double dx = (static_cast<double>(bx) + 0.5D - px) / halfWidth;
+					const double dy = (static_cast<double>(by) + 0.5D - py) / halfDepth;
+					const double dz = (static_cast<double>(bz) + 0.5D - pz) / halfWidth;
+					if (dx * dx + dy * dy + dz * dz < 1.0D && this->level->getTile(bx, by, bz) == Tile::rock->blockID)
+						this->level->setTileNoUpdate(bx, by, bz, oreID);
+				}
+			}
+		}
+	}
+}
+
+void RandomLevelSource::generateInfdevTree(int32_t x, int32_t y, int32_t z) {
+	const int heightExtra = this->infdevRandom.nextInt(3);
+	const int height = heightExtra + 4;
+	if (y <= 0 || y + height > 127) return;
+
+	bool clear = true;
+	const int top = y + height + 1;
+	for (int yy = y; yy <= top && clear; ++yy) {
+		int radius = (yy >= top - 2) ? 2 : (yy != y ? 1 : 0);
+		for (int xx = x - radius; xx <= x + radius && clear; ++xx) {
+			for (int zz = z - radius; zz <= z + radius && clear; ++zz) {
+				if (yy >= 0 && yy < 128) {
+					const int id = this->level->getTile(xx, yy, zz);
+					if (id != 0) clear = false;
+				} else clear = false;
+			}
+		}
+	}
+	if (!clear) return;
+
+	const int ground = this->level->getTile(x, y - 1, z);
+	if ((ground != Tile::grass->blockID && ground != Tile::dirt->blockID) || y >= 128 - height - 1) return;
+	this->level->setTileNoUpdate(x, y - 1, z, Tile::dirt->blockID);
+
+	for (int yy = y - 3 + height; yy <= y + height; ++yy) {
+		const int dy = yy - (y + height);
+		const int radius = 1 - dy / 2;
+		for (int xx = x - radius; xx <= x + radius; ++xx) {
+			for (int zz = z - radius; zz <= z + radius; ++zz) {
+				const int dx = xx - x;
+				const int dz = zz - z;
+				if ((std::abs(dx) != radius || std::abs(dz) != radius ||
+						(this->infdevRandom.nextInt(2) != 0 && dy != 0)) &&
+					!Tile::solid[this->level->getTile(xx, yy, zz)]) {
+					this->level->setTileNoUpdate(xx, yy, zz, Tile::leaves->blockID);
+				}
+			}
+		}
+	}
+	for (int yy = 0; yy < height; ++yy) {
+		if (!Tile::solid[this->level->getTile(x, y + yy, z)])
+			this->level->setTileNoUpdate(x, y + yy, z, Tile::treeTrunk->blockID);
+	}
+}
+
+void RandomLevelSource::postProcess(struct ChunkSource* a2, int32_t chunkX, int32_t chunkZ) {
+	(void)a2;
+	this->level->field_12 = 1;
+	HeavyTile::instaFall = 1;
+
+	// Infdev 20100327 uses a chunk-coordinate-only seed for population.
+	const int64_t populationSeed = static_cast<int64_t>(chunkX) * 318279123LL + static_cast<int64_t>(chunkZ) * 919871212LL;
+	this->infdevRandom.setSeed(populationSeed);
+	const int worldX = chunkX * 16;
+	const int worldZ = chunkZ * 16;
+
+	for (int i = 0; i < 20; ++i)
+		this->generateInfdevOre(Tile::coalOre->blockID, worldX + this->infdevRandom.nextInt(16), this->infdevRandom.nextInt(128), worldZ + this->infdevRandom.nextInt(16));
+	for (int i = 0; i < 10; ++i)
+		this->generateInfdevOre(Tile::ironOre->blockID, worldX + this->infdevRandom.nextInt(16), this->infdevRandom.nextInt(64), worldZ + this->infdevRandom.nextInt(16));
+	if (this->infdevRandom.nextInt(2) == 0)
+		this->generateInfdevOre(Tile::goldOre->blockID, worldX + this->infdevRandom.nextInt(16), this->infdevRandom.nextInt(32), worldZ + this->infdevRandom.nextInt(16));
+	if (this->infdevRandom.nextInt(8) == 0)
+		this->generateInfdevOre(Tile::emeraldOre->blockID, worldX + this->infdevRandom.nextInt(16), this->infdevRandom.nextInt(16), worldZ + this->infdevRandom.nextInt(16)); // Tile::emeraldOre is MCPE 0.8.1's diamond-ore slot (ID 56)
+
+	const int32_t treeNoise = static_cast<int32_t>(this->infdevMobSpawnerNoise->noiseGenerator(static_cast<double>(worldX) * 0.25, static_cast<double>(worldZ) * 0.25));
+	const int32_t treeCount = treeNoise * 8;
+	for (int i = 0; i < treeCount; ++i) {
+		const int x = worldX + this->infdevRandom.nextInt(16);
+		const int z = worldZ + this->infdevRandom.nextInt(16);
+		const int y = this->level->getHeightmap(x, z);
+		this->generateInfdevTree(x + 2, y, z + 2);
+	}
+}
+
+bool_t RandomLevelSource::tick() {
+	return 0;
+}
+bool_t RandomLevelSource::shouldSave() {
+	return 1;
+}
+std::vector<Biome::MobSpawnerData> RandomLevelSource::getMobsAt(const struct MobCategory& a3, int32_t a4, int32_t a5, int32_t a6) {
+	BiomeSource* bs = this->level->getBiomeSource();
+	if(bs) {
+		Biome* v10 = bs->getBiome(a4, a6);
+		if(v10) {
+			return std::vector<Biome::MobSpawnerData>(*v10->getMobs(a3));
+		}
+	}
+	return std::vector<Biome::MobSpawnerData>();
+}
+std::string RandomLevelSource::gatherStats() {
+	return "RandomLevelSource";
+}
