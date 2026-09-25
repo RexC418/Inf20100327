@@ -43,7 +43,7 @@ jobs:
           git clone --depth 1 https://github.com/oldminecraftcommunity/MCPE-0.8.1-Android.git android-wrapper
           rm -rf android-wrapper/app/src/main/cpp
           mkdir -p android-wrapper/app/src/main/cpp
-          rsync -a --exclude='.git/' ./ android-wrapper/app/src/main/cpp/
+          rsync -a --exclude='.git/' --exclude='android-wrapper/' ./ android-wrapper/app/src/main/cpp/
 
       - name: Check proprietary game resources
         run: |
