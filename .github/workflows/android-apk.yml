@@ -8,6 +8,9 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-22.04
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout modified MCPE source
         uses: actions/checkout@v4
@@ -20,8 +23,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install Android build dependencies
         run: |
