@@ -4,6 +4,13 @@
 #include <level/chunk/LevelChunk.hpp>
 #include <level/storage/chunk/ChunkStorage.hpp>
 
+#ifdef ANDROID
+#include <android/log.h>
+#define INFDEV_CC_LOGI(...) __android_log_print(ANDROID_LOG_INFO, "Inf20100327_CC", __VA_ARGS__)
+#else
+#define INFDEV_CC_LOGI(...) do { } while (0)
+#endif
+
 struct ChunkStorage;
 struct LevelChunk;
 struct Level;
@@ -89,8 +96,16 @@ struct ChunkCache: ChunkSource
 			if (this->hasChunk(x, z)) {
 				goto LABEL_48;
 			}
+
+			INFDEV_CC_LOGI("MISS x=%d z=%d slot=%d", x, z, v7);
 			v9 = this->chunks[v7];
 			if (v9) {
+				if (v9 != this->emptyChunk) {
+					INFDEV_CC_LOGI(
+						"EVICT slot=%d old=(%d,%d) new=(%d,%d)",
+						v7, v9->chunkX, v9->chunkZ, x, z
+					);
+				}
 				v9->unload();
 				v10 = this->chunks[v7];
 				if (this->chunkStorage) {
@@ -131,12 +146,16 @@ struct ChunkCache: ChunkSource
 				if (!emptyChunk) {
 					goto LABEL_19;
 				}
+				INFDEV_CC_LOGI(
+					"STORAGE x=%d z=%d ptr=%p", x, z, (void*)emptyChunk
+				);
 				emptyChunk->field_250 = this->level->getTime();
 			} else {
 				emptyChunk = this->emptyChunk;
 				if (!emptyChunk) {
 					LABEL_19: generatorSource = this->generatorSource;
 					if (generatorSource) {
+						INFDEV_CC_LOGI("GENERATOR x=%d z=%d", x, z);
 						emptyChunk = (LevelChunk*) (generatorSource->getChunk(x, z));
 					} else {
 						emptyChunk = this->emptyChunk;
@@ -144,6 +163,12 @@ struct ChunkCache: ChunkSource
 				}
 			}
 			this->chunks[v7] = emptyChunk; // this->chunks[v7]
+			if (emptyChunk) {
+				INFDEV_CC_LOGI(
+					"INSTALL x=%d z=%d slot=%d ptr=%p",
+					x, z, v7, (void*)emptyChunk
+				);
+			}
 			emptyChunk->lightLava();
 			v16 = this->chunks[v7];
 			if (v16) {
@@ -180,6 +205,9 @@ struct ChunkCache: ChunkSource
 			v8 = this->getChunk(x, z);
 			v9 = v8;
 			if (!v8->decorated) {
+				INFDEV_CC_LOGI(
+					"POSTPROCESS x=%d z=%d ptr=%p", x, z, (void*)v8
+				);
 				v8->decorated = 1;
 				if (this->generatorSource) {
 					level = this->level;
