@@ -61,6 +61,10 @@ jobs:
           python3 tools/get_sound_data.py tools/original/libminecraftpe.so
           mv pcm_data.c minecraftpe/impl/pcm_data.c
 
+          # The Android wrapper was copied before pcm_data.c was generated.
+          # Copy the generated sound table into the actual CMake source tree.
+          cp -f minecraftpe/impl/pcm_data.c android-wrapper/app/src/main/cpp/minecraftpe/impl/pcm_data.c
+
           rm -rf android-wrapper/app/src/main/res android-wrapper/app/src/main/assets
           cp -a android-res android-wrapper/app/src/main/res
           cp -a android-assets android-wrapper/app/src/main/assets
