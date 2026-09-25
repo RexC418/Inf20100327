@@ -154,7 +154,25 @@ int engine_handle_input(struct android_app* app, struct AInputEvent* event) {
 								char v26 = AMotionEvent_getPointerId(event, v24);
 								int v29 = (int)AMotionEvent_getX(event, v24);
 								int v30 = (int)AMotionEvent_getY(event, v24);
-								Mouse::feed(0, 0, v29, v30);
+								if (v26 == 0) {
+								    static int16_t lastX = 0;
+								    static int16_t lastY = 0;
+								    static bool haveLastPosition = false;
+
+								    int16_t dx = 0;
+								    int16_t dy = 0;
+
+								    if (haveLastPosition) {
+								        dx = (int16_t)(v29 - lastX);
+								        dy = (int16_t)(v30 - lastY);
+								    }
+
+								    lastX = (int16_t)v29;
+								    lastY = (int16_t)v30;
+								    haveLastPosition = true;
+
+								    Mouse::feed(0, 0, v29, v30, dx, dy);
+								}
 								Multitouch::feed(0, 0, v29, v30, v26);
 							}
 							break;
