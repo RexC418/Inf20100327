@@ -96,8 +96,8 @@ void ClientSideNetworkHandler::tick() {
 	const int32_t cx = Mth::floor(this->minecraft->player->posX * 0.0625);
 	const int32_t cz = Mth::floor(this->minecraft->player->posZ * 0.0625);
 	if(this->streamCenterX == INT32_MIN || this->streamCenterZ == INT32_MIN ||
-		static_cast<int64_t>(std::llabs(static_cast<long long>(cx) - this->streamCenterX)) >= 8 ||
-		static_cast<int64_t>(std::llabs(static_cast<long long>(cz) - this->streamCenterZ)) >= 8) {
+		static_cast<int64_t>(llabs(static_cast<long long>(cx) - this->streamCenterX)) >= 8 ||
+		static_cast<int64_t>(llabs(static_cast<long long>(cz) - this->streamCenterZ)) >= 8) {
 		this->arrangeRequestChunkOrder();
 		this->requestNextChunk();
 	}
