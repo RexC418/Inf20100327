@@ -24,21 +24,40 @@ struct ChunkCache: ChunkSource
 	LevelChunk* lastChunk;
 
 	virtual ~ChunkCache() {
-		if (this->generatorSource) {
-			delete this->generatorSource;
-		}
-		if (this->emptyChunk) {
-			delete this->emptyChunk;
-		}
+		// ChunkCache owns the chunks currently stored in its 256 slots.
+		// Some old paths can leave the same pointer in more than one slot,
+		// so only destroy each LevelChunk once.
 		for (int32_t i = 0; i != 256; ++i) {
 			LevelChunk* lc = this->chunks[i];
-			if (lc) {
-				lc->deleteBlockData();
-				lc = this->chunks[i];
-				if (lc) {
-					delete lc;
+			if (!lc || lc == this->emptyChunk) {
+				this->chunks[i] = 0;
+				continue;
+			}
+
+			bool_t alreadyDeleted = 0;
+			for (int32_t j = 0; j < i; ++j) {
+				if (this->chunks[j] == lc) {
+					alreadyDeleted = 1;
+					break;
 				}
 			}
+
+			if (!alreadyDeleted) {
+				lc->deleteBlockData();
+				delete lc;
+			}
+
+			this->chunks[i] = 0;
+		}
+
+		if (this->emptyChunk) {
+			delete this->emptyChunk;
+			this->emptyChunk = 0;
+		}
+
+		if (this->generatorSource) {
+			delete this->generatorSource;
+			this->generatorSource = 0;
 		}
 	}
 	virtual bool_t hasChunk(int32_t x, int32_t z) {
@@ -82,6 +101,29 @@ struct ChunkCache: ChunkSource
 				if (chunkStorage) {
 					chunkStorage->saveEntities(this->level, this->chunks[v7]);
 				}
+
+				// Do not leave lastChunk pointing at memory that is about to
+				// be released.
+				if (this->lastChunk == v9) {
+					this->lastChunk = 0;
+				}
+
+				// emptyChunk is shared and must never be deleted here.
+				if (v9 != this->emptyChunk) {
+					bool_t referencedElsewhere = 0;
+					for (int32_t i = 0; i != 256; ++i) {
+						if (i != v7 && this->chunks[i] == v9) {
+							referencedElsewhere = 1;
+							break;
+						}
+					}
+
+					if (!referencedElsewhere) {
+						v9->deleteBlockData();
+						delete v9;
+					}
+				}
+				this->chunks[v7] = 0;
 			}
 			v12 = this->chunkStorage;
 			if (v12) {

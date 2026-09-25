@@ -656,16 +656,13 @@ struct LevelChunk* RandomLevelSource::getChunk(int32_t chunkX, int32_t chunkZ) {
 	uint8_t* chunkData; // r8
 	Biome** v16;		// r10
 
-	v5 = (static_cast<uint64_t>(static_cast<uint32_t>(chunkX)) << 32) | static_cast<uint32_t>(chunkZ);
-	auto&& p = this->field_19E0.find(v5);
-	if(p != this->field_19E0.end()) {
-		return p->second;
-	}
-
+	// ChunkCache owns the generated LevelChunk objects.
+	// Do not keep a second, permanent cache here: doing so keeps every
+	// generated chunk alive for the entire lifetime of the world and causes
+	// severe memory/CPU pressure while exploring.
 	this->random.setSeed(132899541 * chunkZ + 341872712 * chunkX);
 	chunkData = new uint8_t[0x8000u];
 	chunk = new LevelChunk(this->level, chunkData, chunkX, chunkZ);
-	this->field_19E0.insert({v5, chunk});
 
 	v16 = this->level->getBiomeSource()->getBiomeBlock(16 * chunkX, 16 * chunkZ, 16, 16);
 	this->generateInfdevTerrain(chunkX, chunkZ, chunkData);
