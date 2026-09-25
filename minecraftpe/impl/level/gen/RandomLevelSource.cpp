@@ -713,22 +713,22 @@ void RandomLevelSource::generateInfdevOre(int32_t oreID, int32_t x, int32_t y, i
 	const double y2 = static_cast<double>(y + this->infdevRandom.nextInt(3) + 2);
 
 	for (int step = 0; step <= 16; ++step) {
-		const double px = x1 + (x2 - x1) * static_cast<double>(step) / 16.0D;
-		const double py = y1 + (y2 - y1) * static_cast<double>(step) / 16.0D;
-		const double pz = z1 + (z2 - z1) * static_cast<double>(step) / 16.0D;
+		const double px = x1 + (x2 - x1) * static_cast<double>(step) / 16.0;
+		const double py = y1 + (y2 - y1) * static_cast<double>(step) / 16.0;
+		const double pz = z1 + (z2 - z1) * static_cast<double>(step) / 16.0;
 		const double randomWidth = this->infdevRandom.nextDouble();
-		const double width = static_cast<double>(infdevSin(static_cast<float>(step) / 16.0F * static_cast<float>(M_PI)) + 1.0F) * randomWidth + 1.0D;
+		const double width = static_cast<double>(infdevSin(static_cast<float>(step) / 16.0F * static_cast<float>(M_PI)) + 1.0F) * randomWidth + 1.0;
 		const double depth = width;
-		const double halfWidth = width / 2.0D;
-		const double halfDepth = depth / 2.0D;
+		const double halfWidth = width / 2.0;
+		const double halfDepth = depth / 2.0;
 
 		for (int bx = static_cast<int>(px - halfWidth); bx <= static_cast<int>(px + halfWidth); ++bx) {
 			for (int by = static_cast<int>(py - halfDepth); by <= static_cast<int>(py + halfDepth); ++by) {
 				for (int bz = static_cast<int>(pz - halfWidth); bz <= static_cast<int>(pz + halfWidth); ++bz) {
-					const double dx = (static_cast<double>(bx) + 0.5D - px) / halfWidth;
-					const double dy = (static_cast<double>(by) + 0.5D - py) / halfDepth;
-					const double dz = (static_cast<double>(bz) + 0.5D - pz) / halfWidth;
-					if (dx * dx + dy * dy + dz * dz < 1.0D && this->level->getTile(bx, by, bz) == Tile::rock->blockID)
+					const double dx = (static_cast<double>(bx) + 0.5 - px) / halfWidth;
+					const double dy = (static_cast<double>(by) + 0.5 - py) / halfDepth;
+					const double dz = (static_cast<double>(bz) + 0.5 - pz) / halfWidth;
+					if (dx * dx + dy * dy + dz * dz < 1.0 && this->level->getTile(bx, by, bz) == Tile::rock->blockID)
 						this->level->setTileNoUpdate(bx, by, bz, oreID);
 				}
 			}
