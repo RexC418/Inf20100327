@@ -3,7 +3,7 @@ name: Android APK (MCPE 0.8.1 Infdev)
 on:
   workflow_dispatch:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   build-android:
