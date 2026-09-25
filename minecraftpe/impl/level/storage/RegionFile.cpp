@@ -1,6 +1,7 @@
 #include <level/storage/RegionFile.hpp>
 #include <BitStream.h>
 #include <cpputils.hpp>
+#include <sstream>
 
 static int32_t regionFloorDiv32(int32_t v) {
 	if(v >= 0) return v / 32;
@@ -37,7 +38,9 @@ bool_t RegionFile::openForChunk(int32_t chunkX, int32_t chunkZ) {
 	} else {
 		std::string regionDir = this->basePath + "/region";
 		createFolderIfNotExists(regionDir.c_str());
-		this->path2file = regionDir + "/r." + std::to_string(rx) + "." + std::to_string(rz) + ".dat";
+		std::ostringstream regionName;
+                                                   regionName << regionDir << "/r." << rx << "." << rz << ".dat";
+                                                   this->path2file = regionName.str();
 	}
 	return this->open();
 }
