@@ -221,6 +221,21 @@ jobs:
           print("Could not decode the mismatch location from the current binary format.")
           PY
 
+      - name: Export Java terrain hash manifest
+        if: success()
+        run: |
+          awk '
+          /^TERRAIN_CHUNK seed=/ { seed=$2; sub(/^seed=/, "", seed); next }
+          /^chunk\..*\.fnv64=/ { print "seed=" seed " " $0 }
+          ' tests/infdev-parity/reference/java.out > tests/infdev-parity/reference/java-chunk-hashes.txt
+
+      - name: Publish Java parity manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infdev-parity-reference
+          path: tests/infdev-parity/reference/java-chunk-hashes.txt
+
       - name: Publish parity artifacts
         if: failure()
         uses: actions/upload-artifact@v4
