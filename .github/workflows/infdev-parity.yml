@@ -36,35 +36,11 @@ jobs:
           curl -fL --retry 3 --retry-delay 2 \
             -o tests/infdev-parity/reference/inf-20100327.jar \
             https://files.betacraft.uk/launcher/assets/versions/inf-20100327.jar
-          sha256sum tests/infdev-parity/reference/inf-20100327.jar
+          expected="c696d187821b9034046e4572dfdb579a60b80530ff02598aadb6322e8ad8b247"
+          actual="$(sha256sum tests/infdev-parity/reference/inf-20100327.jar | cut -d' ' -f1)"
+          echo "Infdev 20100327 jar SHA-256: $actual"
+          test "$actual" = "$expected"
           test "$(stat -c%s tests/infdev-parity/reference/inf-20100327.jar)" -gt 500000
-
-      - name: Inspect original Infdev classes
-        run: |
-          echo "Noise-like class entries:"
-          jar tf tests/infdev-parity/reference/inf-20100327.jar | grep -i "noise" || true
-          echo "Chunk-provider-like class entries:"
-          jar tf tests/infdev-parity/reference/inf-20100327.jar | grep -i "chunkprovider" || true
-          python3 - <<'PY'
-          import zipfile
-          jar = "tests/infdev-parity/reference/inf-20100327.jar"
-          perlin_ctor = b"(Ljava/util/Random;)V"
-          perlin_method = b"(DDD)D"
-          octave_ctor = b"(Ljava/util/Random;I)V"
-          octave_region = b"([DIIIIIIDDD)[D"
-          with zipfile.ZipFile(jar) as z:
-              for name in z.namelist():
-                  if not name.endswith(".class"):
-                      continue
-                  data = z.read(name)
-                  if perlin_ctor in data and perlin_method in data:
-                      print("Perlin-shape candidate:", name)
-                  if octave_ctor in data:
-                      print("Random,int-constructor candidate:", name)
-          PY
-          echo "Inspecting the two known Perlin-shape candidates:"
-          javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p net.minecraft.a.a.c.a.a 2>&1 | head -80 || true
-          javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p net.minecraft.a.a.c.a.c 2>&1 | head -80 || true
 
       - name: Compile original Java oracle
         run: |
