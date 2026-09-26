@@ -127,9 +127,9 @@ void ChestTileEntity::openBy(Player* a2) {
 		dis = this->pair;
 	}
 	if(!dis->openedBy) {
-		this->field_A8 = 6;
-		this->openedBy = a2;
-		this->startOpen();
+		dis->field_A8 = 6;
+		dis->openedBy = a2;
+		dis->startOpen();
 	}
 }
 void ChestTileEntity::pairWith(ChestTileEntity* a2, bool_t a3) {
