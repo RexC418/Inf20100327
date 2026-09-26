@@ -99,14 +99,14 @@ static void emitOctaves(int64_t seed) {
     InfdevNoiseOctaves octaves(random, 8);
 
     std::cout << "OCTAVES seed=" << seed << " octaves=8\n";
-    for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); ++i) {
+    for (size_t i = 0; i < sizeof(SAMPLES) / sizeof(SAMPLES[0]); ++i) {
         double value = octaves.generateNoiseOctaves(SAMPLES[i][0], SAMPLES[i][1], SAMPLES[i][2]);
         std::cout << "sample3." << i << "=" << hex64(bits64(value)) << "\n";
     }
 
     InfdevJavaRandom random2(seed);
     InfdevNoiseOctaves octaves2(random2, 8);
-    for (size_t i = 0; i < sizeof(samples) / sizeof(samples[0]); ++i) {
+    for (size_t i = 0; i < sizeof(SAMPLES) / sizeof(SAMPLES[0]); ++i) {
         double value = octaves2.noiseGenerator(SAMPLES[i][0], SAMPLES[i][1]);
         std::cout << "sample2." << i << "=" << hex64(bits64(value)) << "\n";
     }
@@ -118,17 +118,6 @@ static const int TERRAIN_CHUNKS[][2]={
     {0,0},{1,0},{-1,0},{0,-1},{-1,-1},{37,-91},{-1024,2048},
     {784426,-784426},{784427,784426},{-784427,-784426},{1000000,-1000000},
     {-2000000,3000000},{524287,-524288}
-};
-
-static const double SAMPLES[][3]={
-    {0.0,0.0,0.0},{1.25,2.5,3.75},{-1.25,2.5,-3.75},{12.125,-4.5,99.75},
-    {-1234.5,0.125,6789.25},{255.999,1.5,-255.999},{256.0,-2.75,256.125},
-    {-256.125,3.25,-256.0},{1023.5,-31.75,-1024.25},{4096.125,64.5,-4096.875},
-    {1000000.25,12.75,-1000000.5},{10000000000.25,63.0,-10000000000.5},
-    {12550823.75,63.0,-12550823.75},{12550824.0,63.0,-12550824.0},
-    {12550824.25,63.0,-12550824.25},{-12550824.5,0.0,12550824.75},
-    {2147483000.25,-2147483000.75,2147483647.25},
-    {-2147483648.0,-2147483647.75,2147483647.75}
 };
 
 static const double TERRAIN_SAMPLES[][3]={
