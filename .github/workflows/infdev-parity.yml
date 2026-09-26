@@ -39,6 +39,24 @@ jobs:
           sha256sum tests/infdev-parity/reference/inf-20100327.jar
           test "$(stat -c%s tests/infdev-parity/reference/inf-20100327.jar)" -gt 500000
 
+      - name: Inspect original Infdev classes
+        run: |
+          echo "Noise-like class entries:"
+          jar tf tests/infdev-parity/reference/inf-20100327.jar | grep -i "noise" || true
+          echo "Chunk-provider-like class entries:"
+          jar tf tests/infdev-parity/reference/inf-20100327.jar | grep -i "chunkprovider" || true
+          python3 - <<'PY'
+          import zipfile
+          jar = "tests/infdev-parity/reference/inf-20100327.jar"
+          with zipfile.ZipFile(jar) as z:
+              for name in z.namelist():
+                  if not name.endswith(".class"):
+                      continue
+                  data = z.read(name)
+                  if b"java/util/Random" in data:
+                      print("Random-ref class:", name)
+          PY
+
       - name: Compile original Java oracle
         run: |
           rm -rf tests/infdev-parity/reference/classes
