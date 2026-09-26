@@ -171,9 +171,6 @@ public final class Main {
         Class<?> perlinClass = Class.forName("net.minecraft.a.a.c.a.a", true, loader);
         Class<?> octavesClass = Class.forName("net.minecraft.a.a.c.a.c", true, loader);
 
-        System.out.println("ORACLE PerlinClass=" + perlinClass.getName());
-        System.out.println("ORACLE OctavesClass=" + octavesClass.getName());
-
         Constructor<?> perlinCtor = findConstructor(perlinClass, Random.class);
         Constructor<?> octavesCtor = findConstructor(octavesClass, Random.class, int.class);
         Method perlinNoise = findPerlinNoiseMethod(perlinClass);
