@@ -22,6 +22,15 @@ public final class Main {
         return String.format("%08x", value);
     }
 
+    private static long fnv1a(byte[] data) {
+        long hash = 0xcbf29ce484222325L;
+        for (byte value : data) {
+            hash ^= (value & 0xffL);
+            hash *= 0x100000001b3L;
+        }
+        return hash;
+    }
+
     private static Method findPerlinNoiseMethod(Class<?> clazz) {
         for (Method m : clazz.getDeclaredMethods()) {
             Class<?>[] p = m.getParameterTypes();
