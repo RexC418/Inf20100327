@@ -1,0 +1,80 @@
+name: Infdev 20100327 parity
+
+on:
+  push:
+    branches:
+      - native-mcpe-infdev
+    paths:
+      - "minecraftpe/headers/util/InfdevJavaRandom.hpp"
+      - "minecraftpe/headers/util/InfdevNoisePerlin.hpp"
+      - "minecraftpe/headers/util/InfdevNoiseOctaves.hpp"
+      - "minecraftpe/impl/util/InfdevJavaRandom.cpp"
+      - "minecraftpe/impl/util/InfdevNoisePerlin.cpp"
+      - "minecraftpe/impl/util/InfdevNoiseOctaves.cpp"
+      - "tests/infdev-parity/**"
+      - ".github/workflows/infdev-parity.yml"
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Fetch original Infdev 20100327 jar
+        run: |
+          mkdir -p tests/infdev-parity/reference
+          curl -fL --retry 3 --retry-delay 2 \
+            -o tests/infdev-parity/reference/inf-20100327.jar \
+            https://files.betacraft.uk/launcher/assets/versions/inf-20100327.jar
+          sha256sum tests/infdev-parity/reference/inf-20100327.jar
+          test "$(stat -c%s tests/infdev-parity/reference/inf-20100327.jar)" -gt 500000
+
+      - name: Compile original Java oracle
+        run: |
+          rm -rf tests/infdev-parity/reference/classes
+          mkdir -p tests/infdev-parity/reference/classes
+          javac -source 8 -target 8 \
+            -d tests/infdev-parity/reference/classes \
+            tests/infdev-parity/reference/Main.java
+
+      - name: Compile C++ parity runner
+        run: |
+          g++ -std=c++11 -O2 -Wall -Wextra \
+            -Iminecraftpe/headers \
+            tests/infdev-parity/infdev_parity.cpp \
+            minecraftpe/impl/util/InfdevJavaRandom.cpp \
+            minecraftpe/impl/util/InfdevNoisePerlin.cpp \
+            minecraftpe/impl/util/InfdevNoiseOctaves.cpp \
+            -o tests/infdev-parity/cpp-runner
+
+      - name: Run original Java oracle
+        run: |
+          java -cp tests/infdev-parity/reference/classes:tests/infdev-parity/reference/inf-20100327.jar Main \
+            > tests/infdev-parity/reference/java.out
+
+      - name: Run C++ port
+        run: |
+          tests/infdev-parity/cpp-runner > tests/infdev-parity/cpp.out
+
+      - name: Compare bit-for-bit
+        run: |
+          diff -u \
+            tests/infdev-parity/reference/java.out \
+            tests/infdev-parity/cpp.out
+
+      - name: Publish parity artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infdev-parity-failure
+          path: tests/infdev-parity/
