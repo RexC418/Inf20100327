@@ -57,6 +57,27 @@ jobs:
                       print(name, "octavesRefs=", data.count(needle))
           PY
 
+      - name: Analyze original terrain generator bytecode
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from collections import Counter
+          jar = "tests/infdev-parity/reference/inf-20100327.jar"
+          oct_ref = b"net/minecraft/a/a/c/a/c;"
+          chunk_ref = b"net/minecraft/a/b/"
+          rows = []
+          with zipfile.ZipFile(jar) as z:
+              for name in z.namelist():
+                  if not name.endswith(".class"):
+                      continue
+                  data = z.read(name)
+                  n = data.count(oct_ref)
+                  if n:
+                      rows.append((n, data.count(chunk_ref), name, len(data)))
+          for row in sorted(rows, reverse=True)[:40]:
+              print("octavesRefs=%d chunkRefs=%d size=%d %s" % (row[0], row[1], row[3], row[2]))
+          PY
+
       - name: Compile original Java oracle
         run: |
           rm -rf tests/infdev-parity/reference/classes
