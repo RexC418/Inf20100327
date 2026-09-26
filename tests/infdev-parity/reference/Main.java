@@ -18,28 +18,76 @@ public final class Main {
         return String.format("%08x", value);
     }
 
-    private static Class<?> findClassBySimpleName(JarFile jar, ClassLoader loader, String simpleName)
+    private static Class<?> findClassByNoiseShape(JarFile jar, ClassLoader loader, boolean octaves)
             throws Exception {
-        String suffix = simpleName + ".class";
         Enumeration<JarEntry> entries = jar.entries();
+        Class<?> found = null;
+
         while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
-            if (entry.isDirectory() || !entry.getName().endsWith(suffix))
+            if (entry.isDirectory() || !entry.getName().endsWith(".class"))
                 continue;
 
             String className = entry.getName()
                     .substring(0, entry.getName().length() - 6)
                     .replace('/', '.');
 
+            Class<?> clazz;
             try {
-                return Class.forName(className, true, loader);
-            } catch (ClassNotFoundException ignored) {
-                // Keep scanning: the jar may contain more than one similarly
-                // named class under a nested package.
+                clazz = Class.forName(className, false, loader);
+            } catch (Throwable ignored) {
+                continue;
+            }
+
+            boolean ctorMatch = false;
+            for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
+                Class<?>[] p = ctor.getParameterTypes();
+                if (!octaves && Arrays.equals(p, new Class<?>[]{Random.class})) {
+                    ctorMatch = true;
+                    break;
+                }
+                if (octaves && Arrays.equals(p, new Class<?>[]{Random.class, int.class})) {
+                    ctorMatch = true;
+                    break;
+                }
+            }
+            if (!ctorMatch)
+                continue;
+
+            boolean methodMatch = false;
+            for (Method m : clazz.getDeclaredMethods()) {
+                Class<?>[] p = m.getParameterTypes();
+                if (!octaves &&
+                    m.getReturnType() == double.class &&
+                    Arrays.equals(p, new Class<?>[]{double.class, double.class, double.class})) {
+                    methodMatch = true;
+                    break;
+                }
+                if (octaves &&
+                    m.getReturnType() == double[].class &&
+                    Arrays.equals(p, new Class<?>[]{
+                        double[].class, int.class, int.class, int.class,
+                        int.class, int.class, int.class,
+                        double.class, double.class, double.class})) {
+                    methodMatch = true;
+                    break;
+                }
+            }
+
+            if (methodMatch) {
+                if (found != null) {
+                    throw new IllegalStateException(
+                        "Multiple " + (octaves ? "octaves" : "Perlin") +
+                        " noise-shape candidates: " + found.getName() + " and " + clazz.getName());
+                }
+                found = clazz;
             }
         }
 
-        throw new IllegalStateException("Could not find " + simpleName + ".class in " + jar.getName());
+        if (found == null)
+            throw new IllegalStateException("Could not find " + (octaves ? "NoiseGeneratorOctaves" : "NoiseGeneratorPerlin")
+                + " by constructor/method shape");
+        return found;
     }
 
     private static Method findPerlinNoiseMethod(Class<?> clazz) {
@@ -53,6 +101,22 @@ public final class Main {
             }
         }
         throw new IllegalStateException("Could not find Perlin 3D noise method in " + clazz.getName()
+                + ": " + Arrays.toString(clazz.getDeclaredMethods()));
+    }
+
+    private static Method findOctavesRegionMethod(Class<?> clazz) {
+        for (Method m : clazz.getDeclaredMethods()) {
+            Class<?>[] p = m.getParameterTypes();
+            if (m.getReturnType() == double[].class &&
+                Arrays.equals(p, new Class<?>[]{
+                    double[].class, int.class, int.class, int.class,
+                    int.class, int.class, int.class,
+                    double.class, double.class, double.class})) {
+                m.setAccessible(true);
+                return m;
+            }
+        }
+        throw new IllegalStateException("Could not find octave region method in " + clazz.getName()
                 + ": " + Arrays.toString(clazz.getDeclaredMethods()));
     }
 
@@ -144,27 +208,26 @@ public final class Main {
         }
     }
 
-    private static void emitOctaves(long seed, Constructor<?> ctor, Method noise3, Method noise2) throws Exception {
-        double[][] samples = {
-            {0.0, 0.0, 0.0},
-            {1.25, 2.5, 3.75},
-            {-1.25, 2.5, -3.75},
-            {12.125, -4.5, 99.75},
-            {-1234.5, 0.125, 6789.25},
-            {12550824.0, 63.0, -12550824.0}
+    private static void emitOctaves(long seed, Constructor<?> ctor, Method noiseRegion) throws Exception {
+        int[][] coords = {
+            {0, 0, 0},
+            {1, 0, 0},
+            {-1, 0, -1},
+            {8, 5, 13},
+            {-1234, 17, 5678},
+            {12550824, 63, -12550824}
         };
 
         System.out.println("OCTAVES seed=" + seed + " octaves=8");
-        Object generator = ctor.newInstance(new Random(seed), 8);
-        for (int i = 0; i < samples.length; ++i) {
-            double value = (double) noise3.invoke(generator, samples[i][0], samples[i][1], samples[i][2]);
-            System.out.println("sample3." + i + "=" + hex64(Double.doubleToRawLongBits(value)));
-        }
-
-        Object generator2 = ctor.newInstance(new Random(seed), 8);
-        for (int i = 0; i < samples.length; ++i) {
-            double value = (double) noise2.invoke(generator2, samples[i][0], samples[i][1]);
-            System.out.println("sample2." + i + "=" + hex64(Double.doubleToRawLongBits(value)));
+        for (int i = 0; i < coords.length; ++i) {
+            Object generator = ctor.newInstance(new Random(seed), 8);
+            Object result = noiseRegion.invoke(generator, null,
+                    coords[i][0], coords[i][1], coords[i][2],
+                    1, 1, 1,
+                    1.0, 1.0, 1.0);
+            double[] values = (double[]) result;
+            System.out.println("sample3." + i + "="
+                    + hex64(Double.doubleToRawLongBits(values[0])));
         }
     }
 
@@ -178,8 +241,8 @@ public final class Main {
                 new URL[] { jarFile.toURI().toURL() },
                 Main.class.getClassLoader());
 
-        Class<?> perlinClass = findClassBySimpleName(jar, loader, "NoiseGeneratorPerlin");
-        Class<?> octavesClass = findClassBySimpleName(jar, loader, "NoiseGeneratorOctaves");
+        Class<?> perlinClass = findClassByNoiseShape(jar, loader, false);
+        Class<?> octavesClass = findClassByNoiseShape(jar, loader, true);
 
         System.out.println("ORACLE PerlinClass=" + perlinClass.getName());
         System.out.println("ORACLE OctavesClass=" + octavesClass.getName());
@@ -187,8 +250,7 @@ public final class Main {
         Constructor<?> perlinCtor = findConstructor(perlinClass, Random.class);
         Constructor<?> octavesCtor = findConstructor(octavesClass, Random.class, int.class);
         Method perlinNoise = findPerlinNoiseMethod(perlinClass);
-        Method octaves3D = findOctaves3DMethod(octavesClass);
-        Method octaves2D = findOctaves2DMethod(octavesClass);
+        Method octavesRegion = findOctavesRegionMethod(octavesClass);
 
         long[] seeds = {
             0L,
@@ -203,7 +265,7 @@ public final class Main {
         for (long seed : seeds) {
             emitRandom(seed);
             emitPerlin(seed, perlinCtor, perlinNoise);
-            emitOctaves(seed, octavesCtor, octaves3D, octaves2D);
+            emitOctaves(seed, octavesCtor, octavesRegion);
         }
 
         loader.close();
