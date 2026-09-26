@@ -36,3 +36,28 @@ It does not by itself prove gameplay-side behavior such as MCPE chunk persistenc
 ## Failure debugging
 
 On a mismatch CI prints the first textual difference and, for binary mismatches, decodes the first differing byte back to its seed, chunk and offset. The failure artifact also contains both oracle outputs and the diagnostic files.
+
+
+## Runtime APK fingerprint
+
+The Android build now emits a diagnostic fingerprint immediately after the
+Infdev 20100327 terrain bytes are generated, before heightmap recalculation or
+population.
+
+Filter Logcat for the tag `Inf20100327_RT`.
+
+The APK emits:
+
+```
+GENERATOR_INIT seed=<seed> impl=InfdevTerrainGenerator
+TERRAIN_HASH seed=<seed> chunkX=<x> chunkZ=<z> bytes=32768 fnv64=<16 hex digits>
+```
+
+`TERRAIN_HASH` is FNV-1a 64 over the raw 32768-byte `16x16x128` block array.
+The hash is therefore taken before Infdev population (ores/trees) and is intended
+to be compared with the `chunk.<x>.<z>.fnv64` lines produced by the Java oracle.
+
+For the device test, create a new world with a known seed (recommended: `0`),
+enter the world, let several chunks generate, and capture the
+`Inf20100327_RT` lines. The seed, chunk coordinates and hash can then be
+matched against the Java oracle output.
