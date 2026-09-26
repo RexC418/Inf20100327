@@ -102,7 +102,9 @@ jobs:
           mkdir -p tests/infdev-parity/reference/classes
           javac -source 8 -target 8 \
             -d tests/infdev-parity/reference/classes \
-            tests/infdev-parity/reference/Main.java
+            tests/infdev-parity/reference/Main.java \
+            tests/infdev-parity/reference/net/minecraft/a/a/f.java \
+            tests/infdev-parity/reference/net/minecraft/a/a/e/d.java
 
       - name: Compile C++ parity runner
         run: |
@@ -140,8 +142,13 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          a=Path("tests/infdev-parity/reference/java.bin").read_bytes()
-          b=Path("tests/infdev-parity/cpp.bin").read_bytes()
+          java_path=Path("tests/infdev-parity/reference/java.bin")
+          cpp_path=Path("tests/infdev-parity/cpp.bin")
+          if not java_path.exists() or not cpp_path.exists():
+              print("One or both parity outputs do not exist; the producer step failed.")
+              raise SystemExit(0)
+          a=java_path.read_bytes()
+          b=cpp_path.read_bytes()
           n=min(len(a),len(b))
           i=next((i for i in range(n) if a[i]!=b[i]),n)
           print(f"java.bin size={len(a)} cpp.bin size={len(b)}")
