@@ -116,17 +116,40 @@ jobs:
         run: |
           java -cp tests/infdev-parity/reference/classes Main \
             tests/infdev-parity/reference/inf-20100327.jar \
+            tests/infdev-parity/reference/java.bin \
             > tests/infdev-parity/reference/java.out
 
       - name: Run C++ port
         run: |
-          tests/infdev-parity/cpp-runner > tests/infdev-parity/cpp.out
+          tests/infdev-parity/cpp-runner tests/infdev-parity/cpp.bin > tests/infdev-parity/cpp.out
 
-      - name: Compare bit-for-bit
+      - name: Compare diagnostic streams
         run: |
           diff -u \
             tests/infdev-parity/reference/java.out \
             tests/infdev-parity/cpp.out
+
+      - name: Compare raw oracle bytes
+        run: |
+          cmp -s tests/infdev-parity/reference/java.bin tests/infdev-parity/cpp.bin
+
+      - name: Explain first raw mismatch
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path("tests/infdev-parity/reference/java.bin").read_bytes()
+          b=Path("tests/infdev-parity/cpp.bin").read_bytes()
+          n=min(len(a),len(b))
+          i=next((i for i in range(n) if a[i]!=b[i]),n)
+          print(f"java.bin size={len(a)} cpp.bin size={len(b)}")
+          if i<n:
+              print(f"first raw mismatch at byte {i}: java=0x{a[i]:02x} cpp=0x{b[i]:02x}")
+          elif len(a)!=len(b):
+              print("All common bytes match; files have different lengths.")
+          else:
+              print("Raw files are identical.")
+          PY
 
       - name: Publish parity artifacts
         if: failure()
