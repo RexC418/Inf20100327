@@ -2,7 +2,6 @@
 #include <Minecraft.hpp>
 #include <gui/elements/WorldSelectionList.hpp>
 #include <gui/screens/DeleteWorldScreen.hpp>
-#include <gui/screens/CreateWorldScreen.hpp>
 #include <gui/screens/ProgressScreen.hpp>
 #include <input/Mouse.hpp>
 #include <level/LevelSettings.hpp>
@@ -177,11 +176,10 @@ void SelectWorldScreen::buttonClicked(Button* a2) {
 	LevelSummary v10;				   // [sp+0h] [bp-30h] BYREF
 
 	if(a2->buttonID == this->createNewButton.buttonID && !this->field_124 && !this->field_121) {
-		// Use the native world-creation screen so the seed stays int64_t
-		// from the UI into LevelSettings instead of going through the
-		// legacy Android int32_t user-input path.
-		this->minecraft->setScreen(new CreateWorldScreen(WST_LOCALGAME, MCOServerListItem()));
-		return;
+		v4 = this->minecraft->platform();
+		v4->showDialog(1);
+		v4->createUserInput();
+		this->field_124 = 1;
 	}
 	if(a2->buttonID == this->deleteButton.buttonID) {
 		if(this->isIndexValid(this->selectionList->field_6C)) {

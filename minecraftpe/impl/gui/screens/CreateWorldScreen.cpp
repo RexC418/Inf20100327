@@ -198,7 +198,7 @@ void CreateWorldScreen::init() {
 	this->seedModeButton = new Touch::TButton(6, "Seed: 32-bit", 0);
 	this->seedModeButton->width = 100;
 	this->seedModeButton->height = 26;
-	this->seedModeButton->init(this->minecraft);
+	((Touch::TButton*)this->seedModeButton)->init(this->minecraft);
 	this->field_13C = new Touch::TButton(3, "Back", 0);
 	this->field_13C->width = 38;
 	this->field_13C->height = 18;
