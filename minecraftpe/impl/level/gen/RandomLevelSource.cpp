@@ -22,6 +22,7 @@ RandomLevelSource::RandomLevelSource(struct Level* a2, int64_t a3, int32_t a4, b
 	infdevNoiseGen1(infdevRandom,16),
 	infdevNoiseGen2(infdevRandom,16),
 	infdevNoiseGen3(infdevRandom,8),
+	infdevTerrainGenerator(a3),
 	infdevMobSpawnerNoise(0),
 	octave16noise_1(&this->random, 16)
 	, octave16noise_2(&this->random, 16)
