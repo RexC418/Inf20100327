@@ -51,7 +51,7 @@ void ChestTileEntity::_getCenter(float& x, float& y, float& z) {
 }
 bool_t ChestTileEntity::_saveClientSideState(CompoundTag* a2) {
 	if(TileEntity::save(a2)) {
-		if(this->pair) {
+		if(this->pair && this->pair != this) {
 			if(this->isUnpaired) {
 				a2->putInt("pairx", this->pair->posX);
 				a2->putInt("pairz", this->pair->posZ);
@@ -219,9 +219,12 @@ void ChestTileEntity::tick() {
 
 	if(this->field_A4) {
 		te = this->level->getTileEntity(this->field_9C, this->posY, this->field_A0);
-		if(te) {
-			this->pairWith((ChestTileEntity*)te, 1);
-			((ChestTileEntity*)te)->pairWith(this, 0);
+		if(te && te != this && te->isType(2)) {
+			ChestTileEntity* other = (ChestTileEntity*)te;
+			if(!other->pair && this->canPairWith(other)) {
+				this->pairWith(other, 1);
+				other->pairWith(this, 0);
+			}
 			this->field_A4 = 0;
 		}
 	}
