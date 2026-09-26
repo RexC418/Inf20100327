@@ -155,22 +155,70 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import struct
+
           java_path=Path("tests/infdev-parity/reference/java.bin")
           cpp_path=Path("tests/infdev-parity/cpp.bin")
           if not java_path.exists() or not cpp_path.exists():
               print("One or both parity outputs do not exist; the producer step failed.")
               raise SystemExit(0)
+
           a=java_path.read_bytes()
           b=cpp_path.read_bytes()
           n=min(len(a),len(b))
           i=next((i for i in range(n) if a[i]!=b[i]),n)
           print(f"java.bin size={len(a)} cpp.bin size={len(b)}")
-          if i<n:
-              print(f"first raw mismatch at byte {i}: java=0x{a[i]:02x} cpp=0x{b[i]:02x}")
-          elif len(a)!=len(b):
-              print("All common bytes match; files have different lengths.")
-          else:
-              print("Raw files are identical.")
+          if i==n:
+              if len(a)!=len(b):
+                  print("All common bytes match; files have different lengths.")
+              else:
+                  print("Raw files are identical.")
+              raise SystemExit(0)
+
+          print(f"first raw mismatch at byte {i}: java=0x{a[i]:02x} cpp=0x{b[i]:02x}")
+
+          def u32(buf, off): return struct.unpack_from(">I", buf, off)[0]
+          def i64(buf, off): return struct.unpack_from(">q", buf, off)[0]
+          def f64(buf, off): return struct.unpack_from(">d", buf, off)[0]
+
+          if len(a) < 8 or len(b) < 8:
+              raise SystemExit(0)
+          if a[:8] != b[:8]:
+              print("Mismatch is in the binary header.")
+              raise SystemExit(0)
+
+          off=8
+          seeds=u32(a,4)
+          for seed_index in range(seeds):
+              seed=i64(a,off); off+=8
+              for chunk_index in range(13):
+                  cx=u32(a,off); cz=u32(a,off+4); off+=8
+                  size=4*4*33*4*8
+                  if off <= i < off+size:
+                      rel=i-off
+                      sample_index=rel//8
+                      print(f"location: density grid, seed={seed}, chunk=({cx if cx<2**31 else cx-2**32},{cz if cz<2**31 else cz-2**32}), byte-in-grid={rel}, double-index={sample_index}")
+                      print(f"java double={f64(a,off + sample_index*8)!r} cpp double={f64(b,off + sample_index*8)!r}")
+                      raise SystemExit(0)
+                  off+=size
+
+              if off+8>len(a): break
+              seed2=i64(a,off); off+=8
+              if seed2!=seed:
+                  print(f"Unexpected binary framing at seed index {seed_index}: {seed2} != {seed}")
+                  raise SystemExit(0)
+              for chunk_index in range(13):
+                  cx=u32(a,off); cz=u32(a,off+4); length=u32(a,off+8); off+=12
+                  if off <= i < off+length:
+                      rel=i-off
+                      ccx=cx if cx<2**31 else cx-2**32
+                      ccz=cz if cz<2**31 else cz-2**32
+                      print(f"location: chunk bytes, seed={seed}, chunk=({ccx},{ccz}), byte-in-chunk={rel}")
+                      print(f"java byte=0x{a[i]:02x} cpp byte=0x{b[i]:02x}")
+                      raise SystemExit(0)
+                  off+=length
+
+          print("Could not decode the mismatch location from the current binary format.")
           PY
 
       - name: Publish parity artifacts
