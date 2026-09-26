@@ -86,8 +86,7 @@ jobs:
           javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p -c net.minecraft.a.a.c.a \
             > tests/infdev-parity/reference/provider.javap 2>&1 || true
           echo "Original provider density methods:"
-          grep -n -A420 -B5 "double a(double, double, double)" \
-            tests/infdev-parity/reference/provider.javap | head -500 || true
+          sed -n '487,760p' tests/infdev-parity/reference/provider.javap || true
           echo "Classes with Octaves descriptor:"
           python3 - <<'PY'
           import zipfile
