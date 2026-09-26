@@ -210,6 +210,26 @@ public final class Main {
     private static void writeI64BE(DataOutputStream out,long value)throws IOException{out.writeLong(value);}
     private static void writeDoubleBE(DataOutputStream out,double value)throws IOException{out.writeLong(Double.doubleToRawLongBits(value));}
 
+    private static void emitDensityComponents(long seed,Constructor<?> providerCtor,Class<?> octavesClass,Method noise3)throws Exception{
+        Object provider=providerCtor.newInstance(null,seed);
+        java.lang.reflect.Field lowField=provider.getClass().getDeclaredField("b");
+        java.lang.reflect.Field highField=provider.getClass().getDeclaredField("c");
+        java.lang.reflect.Field selectorField=provider.getClass().getDeclaredField("d");
+        lowField.setAccessible(true);highField.setAccessible(true);selectorField.setAccessible(true);
+        Object lowGen=lowField.get(provider), highGen=highField.get(provider), selectorGen=selectorField.get(provider);
+        final double x=12550824.0,y=63.0,z=-12550824.0;
+        final double offset=y*4.0-64.0;
+        final double selector=((Double)noise3.invoke(selectorGen,x*684.412/80.0,y*684.412/400.0,z*684.412/80.0))/2.0;
+        final Method octave3=findOctaves3DMethod(octavesClass);
+        final double low=((Double)octave3.invoke(lowGen,x*684.412,y*984.412,z*684.412))/512.0-offset;
+        final double high=((Double)octave3.invoke(highGen,x*684.412,y*984.412,z*684.412))/512.0-offset;
+        System.out.println("TERRAIN_COMPONENTS seed="+seed);
+        System.out.println("offset="+hex64(Double.doubleToRawLongBits(offset)));
+        System.out.println("selector="+hex64(Double.doubleToRawLongBits(selector)));
+        System.out.println("low="+hex64(Double.doubleToRawLongBits(low)));
+        System.out.println("high="+hex64(Double.doubleToRawLongBits(high)));
+    }
+
     private static void emitDensitySamples(long seed,Constructor<?> ctor,Method density)throws Exception{
         Object provider=ctor.newInstance(null,seed);
         System.out.println("TERRAIN_DENSITY seed="+seed);
@@ -273,6 +293,7 @@ public final class Main {
         out.writeInt(0x49464431);out.writeInt(seeds.length);
         for(long seed:seeds){
             emitRandom(seed);emitPerlin(seed,perlinCtor,perlinNoise);emitOctaves(seed,octavesCtor,octaves3D,octaves2D);
+            emitDensityComponents(seed,providerCtor,octavesClass,octaves3D);
             emitTerrain(seed,providerCtor,density,chunkMethod,out);
         }
         out.flush();out.close();loader.close();jar.close();
