@@ -24,6 +24,7 @@ struct RandomLevelSource : ChunkSource{
 	InfdevNoiseOctaves infdevNoiseGen1;
 	InfdevNoiseOctaves infdevNoiseGen2;
 	InfdevNoiseOctaves infdevNoiseGen3;
+InfdevTerrainGenerator infdevTerrainGenerator;
 	InfdevNoiseOctaves* infdevMobSpawnerNoise;
 	PerlinNoise octave16noise_1;
 	PerlinNoise octave16noise_2;
