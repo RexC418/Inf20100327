@@ -165,7 +165,8 @@ int main(int argc,char** argv) {
         6148914691236517205LL,-6148914691236517206LL,
         std::numeric_limits<int64_t>::min(),std::numeric_limits<int64_t>::max(),
         9223372036854775806LL,-9223372036854775807LL,
-        1311768467463790320LL,2623536924927580640LL
+        1311768467463790320LL,2623536924927580640LL,
+        3809616226837332573LL,724828765LL
     };
 
     const char* path=argc>1?argv[1]:"tests/infdev-parity/cpp.bin";
