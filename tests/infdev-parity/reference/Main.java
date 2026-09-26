@@ -1,8 +1,12 @@
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Random;
 
 public final class Main {
@@ -12,6 +16,30 @@ public final class Main {
 
     private static String hex32(int value) {
         return String.format("%08x", value);
+    }
+
+    private static Class<?> findClassBySimpleName(JarFile jar, ClassLoader loader, String simpleName)
+            throws Exception {
+        String suffix = simpleName + ".class";
+        Enumeration<JarEntry> entries = jar.entries();
+        while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+            if (entry.isDirectory() || !entry.getName().endsWith(suffix))
+                continue;
+
+            String className = entry.getName()
+                    .substring(0, entry.getName().length() - 6)
+                    .replace('/', '.');
+
+            try {
+                return Class.forName(className, true, loader);
+            } catch (ClassNotFoundException ignored) {
+                // Keep scanning: the jar may contain more than one similarly
+                // named class under a nested package.
+            }
+        }
+
+        throw new IllegalStateException("Could not find " + simpleName + ".class in " + jar.getName());
     }
 
     private static Method findPerlinNoiseMethod(Class<?> clazz) {
@@ -24,7 +52,8 @@ public final class Main {
                 return m;
             }
         }
-        throw new IllegalStateException("Could not find Perlin 3D noise method in " + clazz.getName());
+        throw new IllegalStateException("Could not find Perlin 3D noise method in " + clazz.getName()
+                + ": " + Arrays.toString(clazz.getDeclaredMethods()));
     }
 
     private static Method findOctaves3DMethod(Class<?> clazz) {
@@ -37,7 +66,8 @@ public final class Main {
                 return m;
             }
         }
-        throw new IllegalStateException("Could not find octave 3D scalar method in " + clazz.getName());
+        throw new IllegalStateException("Could not find octave 3D scalar method in " + clazz.getName()
+                + ": " + Arrays.toString(clazz.getDeclaredMethods()));
     }
 
     private static Method findOctaves2DMethod(Class<?> clazz) {
@@ -50,7 +80,8 @@ public final class Main {
                 return m;
             }
         }
-        throw new IllegalStateException("Could not find octave 2D scalar method in " + clazz.getName());
+        throw new IllegalStateException("Could not find octave 2D scalar method in " + clazz.getName()
+                + ": " + Arrays.toString(clazz.getDeclaredMethods()));
     }
 
     private static Constructor<?> findConstructor(Class<?> clazz, Class<?>... expected) {
@@ -118,6 +149,7 @@ public final class Main {
             {0.0, 0.0, 0.0},
             {1.25, 2.5, 3.75},
             {-1.25, 2.5, -3.75},
+            {12.125, 63.0, -12550824.0},
             {12.125, -4.5, 99.75},
             {-1234.5, 0.125, 6789.25},
             {12550824.0, 63.0, -12550824.0}
@@ -138,8 +170,20 @@ public final class Main {
     }
 
     public static void main(String[] args) throws Exception {
-        Class<?> perlinClass = Class.forName("NoiseGeneratorPerlin");
-        Class<?> octavesClass = Class.forName("NoiseGeneratorOctaves");
+        if (args.length != 1)
+            throw new IllegalArgumentException("Usage: Main <inf-20100327.jar>");
+
+        File jarFile = new File(args[0]);
+        JarFile jar = new JarFile(jarFile);
+        URLClassLoader loader = new URLClassLoader(
+                new URL[] { jarFile.toURI().toURL() },
+                Main.class.getClassLoader());
+
+        Class<?> perlinClass = findClassBySimpleName(jar, loader, "NoiseGeneratorPerlin");
+        Class<?> octavesClass = findClassBySimpleName(jar, loader, "NoiseGeneratorOctaves");
+
+        System.out.println("ORACLE PerlinClass=" + perlinClass.getName());
+        System.out.println("ORACLE OctavesClass=" + octavesClass.getName());
 
         Constructor<?> perlinCtor = findConstructor(perlinClass, Random.class);
         Constructor<?> octavesCtor = findConstructor(octavesClass, Random.class, int.class);
@@ -162,5 +206,8 @@ public final class Main {
             emitPerlin(seed, perlinCtor, perlinNoise);
             emitOctaves(seed, octavesCtor, octaves3D, octaves2D);
         }
+
+        loader.close();
+        jar.close();
     }
 }
