@@ -250,6 +250,11 @@ public final class Main {
     public static void main(String[] args) throws Exception {
         if(args.length!=2) throw new IllegalArgumentException("Usage: Main <inf-20100327.jar> <oracle.bin>");
         File jarFile=new File(args[0]);
+        // Force the harness stubs into the parent classloader before the original
+        // 20100327 classes are loaded. The provider bytecode itself still comes
+        // directly from the original JAR.
+        Class.forName("net.minecraft.a.a.f");
+        Class.forName("net.minecraft.a.a.e.d");
         JarFile jar=new JarFile(jarFile);
         URLClassLoader loader=new URLClassLoader(new URL[]{jarFile.toURI().toURL()},Main.class.getClassLoader());
         Class<?> perlinClass=Class.forName("net.minecraft.a.a.c.a.a",true,loader);
