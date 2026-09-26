@@ -317,7 +317,8 @@ public final class Main {
             81985529216486895L,-81985529216486896L,
             6148914691236517205L,-6148914691236517206L,
             Long.MIN_VALUE,Long.MAX_VALUE,9223372036854775806L,-9223372036854775807L,
-            1311768467463790320L,2623536924927580640L
+            1311768467463790320L,2623536924927580640L,
+            3809616226837332573L,724828765L
         };
         DataOutputStream out=new DataOutputStream(new FileOutputStream(args[1]));
         out.writeInt(0x49464431);out.writeInt(seeds.length);
