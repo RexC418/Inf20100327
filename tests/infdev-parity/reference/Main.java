@@ -4,6 +4,7 @@ import java.net.URLClassLoader;
 import java.util.jar.JarFile;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -158,6 +159,110 @@ public final class Main {
             System.out.println("sample2." + i + "=" + hex64(Double.doubleToRawLongBits(value)));
         }
     }
+    private static long fnv1a(byte[] data) {
+        long hash = 0xcbf29ce484222325L;
+        for (byte value : data) {
+            hash ^= (value & 0xffL);
+            hash *= 0x100000001b3L;
+        }
+        return hash;
+    }
+
+    private static Method findDensityMethod(Class<?> clazz) {
+        for (Method m : clazz.getDeclaredMethods()) {
+            Class<?>[] p = m.getParameterTypes();
+            if (m.getReturnType() == double.class &&
+                Arrays.equals(p, new Class<?>[]{double.class, double.class, double.class})) {
+                m.setAccessible(true);
+                return m;
+            }
+        }
+        throw new IllegalStateException("Could not find terrain density method in " + clazz.getName());
+    }
+
+    private static Constructor<?> findProviderConstructor(Class<?> clazz) {
+        for (Constructor<?> c : clazz.getDeclaredConstructors()) {
+            Class<?>[] p = c.getParameterTypes();
+            if (p.length == 2 && p[1] == long.class) {
+                c.setAccessible(true);
+                return c;
+            }
+        }
+        throw new IllegalStateException("Could not find provider(World,long) constructor in " + clazz.getName());
+    }
+
+    private static Method findChunkMethod(Class<?> clazz) {
+        for (Method m : clazz.getDeclaredMethods()) {
+            Class<?>[] p = m.getParameterTypes();
+            if (Arrays.equals(p, new Class<?>[]{int.class, int.class}) &&
+                !Modifier.isStatic(m.getModifiers())) {
+                m.setAccessible(true);
+                if (!m.getName().equals("b"))
+                    continue;
+                return m;
+            }
+        }
+        throw new IllegalStateException("Could not find terrain chunk method in " + clazz.getName());
+    }
+
+    private static byte[] findChunkBytes(Object chunk) throws Exception {
+        Class<?> c = chunk.getClass();
+        while (c != null) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (f.getType() != byte[].class)
+                    continue;
+                f.setAccessible(true);
+                Object value = f.get(chunk);
+                if (value instanceof byte[] && ((byte[]) value).length == 32768)
+                    return (byte[]) value;
+            }
+            c = c.getSuperclass();
+        }
+        throw new IllegalStateException("Could not find 32768-byte chunk block array in " + chunk.getClass().getName());
+    }
+
+    private static void emitTerrain(long seed, Class<?> providerClass) throws Exception {
+        Constructor<?> ctor = findProviderConstructor(providerClass);
+        Method density = findDensityMethod(providerClass);
+
+        double[][] densitySamples = {
+            {0.0, 0.0, 0.0},
+            {1.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0},
+            {-1.0, 17.0, -1.0},
+            {1234.25, 63.0, -987.75},
+            {12550824.0, 63.0, -12550824.0}
+        };
+
+        System.out.println("TERRAIN_DENSITY seed=" + seed);
+        Object provider = ctor.newInstance(null, seed);
+        for (int i = 0; i < densitySamples.length; ++i) {
+            double value = (double) density.invoke(provider,
+                    densitySamples[i][0], densitySamples[i][1], densitySamples[i][2]);
+            System.out.println("sample." + i + "=" + hex64(Double.doubleToRawLongBits(value)));
+        }
+
+        Method chunkMethod = findChunkMethod(providerClass);
+        int[][] chunks = {
+            {0, 0},
+            {1, 0},
+            {-1, 0},
+            {0, -1},
+            {-1, -1},
+            {37, -91},
+            {-1024, 2048}
+        };
+
+        System.out.println("TERRAIN_CHUNK seed=" + seed);
+        for (int[] coord : chunks) {
+            Object instance = ctor.newInstance(null, seed);
+            Object chunk = chunkMethod.invoke(instance, coord[0], coord[1]);
+            byte[] blocks = findChunkBytes(chunk);
+            System.out.println("chunk." + coord[0] + "." + coord[1] + ".size=" + blocks.length);
+            System.out.println("chunk." + coord[0] + "." + coord[1] + ".fnv64=" + hex64(fnv1a(blocks)));
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 1)
             throw new IllegalArgumentException("Usage: Main <inf-20100327.jar>");
@@ -170,6 +275,7 @@ public final class Main {
 
         Class<?> perlinClass = Class.forName("net.minecraft.a.a.c.a.a", true, loader);
         Class<?> octavesClass = Class.forName("net.minecraft.a.a.c.a.c", true, loader);
+        Class<?> providerClass = Class.forName("net.minecraft.a.a.c.a", true, loader);
 
         Constructor<?> perlinCtor = findConstructor(perlinClass, Random.class);
         Constructor<?> octavesCtor = findConstructor(octavesClass, Random.class, int.class);
@@ -191,6 +297,7 @@ public final class Main {
             emitRandom(seed);
             emitPerlin(seed, perlinCtor, perlinNoise);
             emitOctaves(seed, octavesCtor, octaves3D, octaves2D);
+            emitTerrain(seed, providerClass);
         }
 
         loader.close();
