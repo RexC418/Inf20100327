@@ -2,7 +2,6 @@
 #include <GetTime.h>
 #include <cpputils.hpp>
 #include <level/Level.hpp>
-#include <level/gen/ChunkSource.hpp>
 #include <level/chunk/LevelChunk.hpp>
 #include <level/storage/RegionFile.hpp>
 #include <level/storage/chunk/UnsavedLevelChunk.hpp>
@@ -98,9 +97,27 @@ void ExternalFileLevelStorage::readPlayerData(const std::string& a1, LevelData& 
 		if(fread(&size, sizeof(size), 1, v3) == 1 && fread(&ptr, sizeof(ptr), 1, v3) && size == 1) {
 			int v4 = fread(&a2, 1, sizeof(a2), v3);
 			if(v4 == ptr) {
+				float z = a2.playerData.z;
+				if(a2.playerData.x < 0.5) {
+					a2.playerData.x = 0.5;
+				}
+				bool v6 = a2.playerData.x == 255.5;
+				bool v7 = a2.playerData.x < 255.5;
+				if(z < 0.5) {
+					a2.playerData.z = 0.5;
+				}
+				float v8 = a2.playerData.z;
+				if(!v7 && !v6) {
+					a2.playerData.x = 255.5;
+				}
 				float y = a2.playerData.y;
-				if(y < 0.0) a2.playerData.y = 64.0;
-			a2.field_50 = size;
+				if(v8 > 255.5) {
+					a2.playerData.z = 255.5;
+				}
+				if(y < 0.0) {
+					a2.playerData.y = 64.0;
+				}
+				a2.field_50 = size;
 			}
 		}
 		fclose(v3);
@@ -459,22 +476,30 @@ void ExternalFileLevelStorage::saveAll(Level* a2, std::vector<LevelChunk*>& a3) 
 }
 void ExternalFileLevelStorage::tick() {
 	if(this->level) {
-		++this->field_24;
+		this->field_24 = this->field_24 + 1;
 		if((this->field_24 % 50) == 0) {
-			// The original MCPE code scanned only chunks 0..15. That is
-			// incompatible with an unbounded Infdev-style world: every
-			// autosave tick it would force-load the old 16x16 area and evict
-			// chunks around the player. Save only chunks already resident in
-			// the active ChunkSource instead.
-			ChunkSource* source = this->level->getChunkSource();
-			if(source) {
-				source->saveAll(1);
-			}
+			for(int32_t z = 0; z != 16; ++z) {
+				for(int32_t x = 0; x != 16; ++x) {
+					LevelChunk* chunk = this->level->getChunk(x, z);
+					if(chunk && chunk->unsaved) {
+						for(auto&& el: this->field_2C) {
+							if(el.index == (x + 16 * z)) {
+								el.timeMs = RakNet::GetTimeMS();
+								goto LABEL_12;
+							}
+						}
 
-			if(this->field_24 - this->field_34 > 1200) {
-				this->saveEntities(this->level, 0);
-				this->level->savePlayers();
+						this->field_2C.push_back({x + 16 * z, (int32_t)RakNet::GetTimeMS(), chunk});
+LABEL_12:
+						chunk->unsaved = 0;
+					}
+				}
 			}
+			this->savePendingUnsavedChunks(2);
+		}
+		if(this->field_24 - this->field_34 > 1200) {
+			this->saveEntities(this->level, 0);
+			this->level->savePlayers();
 		}
 	}
 }

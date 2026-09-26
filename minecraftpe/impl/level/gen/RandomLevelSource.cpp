@@ -15,12 +15,6 @@
 #include <cpputils.hpp>
 #include <algorithm>
 
-#ifdef ANDROID
-#include <android/log.h>
-#define INFDEV_GEN_LOGI(...) __android_log_print(ANDROID_LOG_INFO, "Inf20100327_GEN", __VA_ARGS__)
-#else
-#define INFDEV_GEN_LOGI(...) do { } while (0)
-#endif
 
 RandomLevelSource::RandomLevelSource(struct Level* a2, int64_t a3, int32_t a4, bool a5) //long, int, bool
 	: random(a3),
@@ -656,9 +650,6 @@ void RandomLevelSource::generateInfdevTerrain(int32_t chunkX, int32_t chunkZ, ui
 }
 
 struct LevelChunk* RandomLevelSource::getChunk(int32_t chunkX, int32_t chunkZ) {
-	INFDEV_GEN_LOGI(
-		"GENERATE_BEGIN x=%d z=%d", chunkX, chunkZ
-	);
 	uint32_t v5;		// r10
 	int32_t v6;			// r2
 	int32_t v9;			// r10
@@ -677,10 +668,6 @@ struct LevelChunk* RandomLevelSource::getChunk(int32_t chunkX, int32_t chunkZ) {
 	v16 = this->level->getBiomeSource()->getBiomeBlock(16 * chunkX, 16 * chunkZ, 16, 16);
 	this->generateInfdevTerrain(chunkX, chunkZ, chunkData);
 	chunk->recalcHeightmap();
-	INFDEV_GEN_LOGI(
-		"GENERATE_DONE x=%d z=%d ptr=%p",
-		chunkX, chunkZ, (void*)chunk
-	);
 	return chunk;
 }
 
@@ -793,9 +780,6 @@ void RandomLevelSource::generateInfdevTree(int32_t x, int32_t y, int32_t z) {
 }
 
 void RandomLevelSource::postProcess(struct ChunkSource* a2, int32_t chunkX, int32_t chunkZ) {
-	INFDEV_GEN_LOGI(
-		"POPULATE_BEGIN x=%d z=%d", chunkX, chunkZ
-	);
 	(void)a2;
 	this->level->field_12 = 1;
 	HeavyTile::instaFall = 1;
@@ -823,9 +807,6 @@ void RandomLevelSource::postProcess(struct ChunkSource* a2, int32_t chunkX, int3
 		const int y = this->level->getHeightmap(x, z);
 		this->generateInfdevTree(x + 2, y, z + 2);
 	}
-	INFDEV_GEN_LOGI(
-		"POPULATE_DONE x=%d z=%d", chunkX, chunkZ
-	);
 }
 
 bool_t RandomLevelSource::tick() {

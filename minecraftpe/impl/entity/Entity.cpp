@@ -1467,6 +1467,16 @@ bool_t Entity::load(CompoundTag* a2) {
 	z = pos->getFloat(2);
 	v15 = (float)(this->entityWidth * 0.5) + 0.001;
 	v16 = z;
+	if(x > (float)(256.0 - v15)) {
+		x = 256.0 - v15;
+	} else if(x <= v15) {
+		x = (float)(this->entityWidth * 0.5) + 0.001;
+	}
+	if(z > (float)(256.0 - v15)) {
+		v16 = 256.0 - v15;
+	} else if(z <= v15) {
+		v16 = (float)(this->entityWidth * 0.5) + 0.001;
+	}
 	this->posZ = v16;
 	this->prevPosZ = v16;
 	this->prevZ = v16;

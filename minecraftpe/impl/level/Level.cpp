@@ -1462,9 +1462,7 @@ bool_t Level::hasNeighborSignal(int32_t x, int32_t y, int32_t z) {
 	}
 }
 bool_t Level::inRange(int32_t x, int32_t y, int32_t z) {
-	(void)x;
-	(void)z;
-	return y >= 0 && y <= 127;
+	return (uint32_t)x <= 0xff && y <= 127 && z >= 0 && z <= 255;
 }
 bool_t Level::isDay() {
 	return this->skyDarken <= 3;

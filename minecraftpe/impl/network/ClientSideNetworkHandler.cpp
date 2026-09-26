@@ -74,7 +74,6 @@
 #include <tile/entity/TileEntity.hpp>
 #include <util/_ChunkSorter.hpp>
 #include <algorithm>
-#include <cstdint>
 
 ClientSideNetworkHandler::ClientSideNetworkHandler(Minecraft* a2, IRakNetInstance* a3) {
 	this->minecraft = a2;
@@ -83,24 +82,11 @@ ClientSideNetworkHandler::ClientSideNetworkHandler(Minecraft* a2, IRakNetInstanc
 	this->loadedChunks = 0;
 	this->timeToSet = 0;
 	this->requestedChunks = 0;
-	this->streamCenterX = INT32_MIN;
-	this->streamCenterZ = INT32_MIN;
 	this->_isRealmsServer = 0;
 	this->rakPeer = a3->getPeer();
 }
 bool_t ClientSideNetworkHandler::areAllChunksLoaded() {
 	return this->loadedChunks > 255;
-}
-void ClientSideNetworkHandler::tick() {
-	if(!this->minecraft || !this->minecraft->player || !this->level) return;
-	const int32_t cx = Mth::floor(this->minecraft->player->posX * 0.0625);
-	const int32_t cz = Mth::floor(this->minecraft->player->posZ * 0.0625);
-	if(this->streamCenterX == INT32_MIN || this->streamCenterZ == INT32_MIN ||
-		static_cast<int64_t>(llabs(static_cast<long long>(cx) - this->streamCenterX)) >= 8 ||
-		static_cast<int64_t>(llabs(static_cast<long long>(cz) - this->streamCenterZ)) >= 8) {
-		this->arrangeRequestChunkOrder();
-		this->requestNextChunk();
-	}
 }
 
 void ClientSideNetworkHandler::arrangeRequestChunkOrder() {
@@ -114,32 +100,17 @@ void ClientSideNetworkHandler::arrangeRequestChunkOrder() {
 		cx = 8;
 	}
 
-	for(int dz = -8; dz < 8; ++dz) {
-		for(int dx = -8; dx < 8; ++dx) {
-			const int slot = (dz + 8) * 16 + (dx + 8);
-			this->chunksToSend[slot].x = cx + dx;
-			this->chunksToSend[slot].y = cz + dz;
-		}
-	}
 	std::sort<IntPair*>(std::begin(this->chunksToSend), std::end(this->chunksToSend), _ChunkSorter{cx, cz});
-	this->requestedChunks = 0;
-	this->loadedChunks = 0;
-	this->streamCenterX = cx;
-	this->streamCenterZ = cz;
 }
 void ClientSideNetworkHandler::clearChunksLoaded() {
 	for(int v1 = 0; v1 != 256; ++v1) {
-		this->chunksToSend[v1].x = 0;
-		this->chunksToSend[v1].y = 0;
+		this->chunksToSend[v1].x = v1 >> 4;
+		this->chunksToSend[v1].y = v1 & 0xf;
 		this->chunksLoaded[v1] = 0;
 	}
 }
 bool ClientSideNetworkHandler::isChunkLoaded(int32_t x, int32_t z) {
-	for(int i = 0; i < 256; ++i) {
-		if(this->chunksToSend[i].x == x && this->chunksToSend[i].y == z)
-			return this->chunksLoaded[i];
-	}
-	return false;
+	return (uint32_t)x > 0xF || z < 0 || z > 15 || this->chunksLoaded[16 * x + z];
 }
 bool_t ClientSideNetworkHandler::isRealmsServer() {
 	return this->_isRealmsServer;
@@ -543,16 +514,8 @@ void ClientSideNetworkHandler::handle(const RakNet::RakNetGUID&, struct ChunkDat
 					this->level->setTilesDirty(16 * pk->xPos + v35, minY, 16 * pk->zPos + v29, 16 * pk->xPos + v36, maxY, 16 * pk->zPos + v37);
 				}
 
-				// Server chunk data is authoritative. Mark the chunk as already
-				// decorated so the client never locally runs Infdev population.
-				chunk->decorated = 1;
 				chunk->unsaved = 0;
-				for(int i = 0; i < 256; ++i) {
-					if(this->chunksToSend[i].x == pk->xPos && this->chunksToSend[i].y == pk->zPos) {
-						this->chunksLoaded[i] = 1;
-						break;
-					}
-				}
+				this->chunksLoaded[16 * pk->xPos + pk->zPos] = 1;
 				if(this->areAllChunksLoaded()) {
 					ReadyPacket v47(2);
 					this->rakNetInstance->send(v47);
