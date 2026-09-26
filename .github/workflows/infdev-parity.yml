@@ -87,6 +87,10 @@ jobs:
             > tests/infdev-parity/reference/provider.javap 2>&1 || true
           echo "Original provider density methods:"
           sed -n '487,760p' tests/infdev-parity/reference/provider.javap || true
+          echo "Original octaves bytecode:"
+          javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p -c net.minecraft.a.a.c.a.c \
+            > tests/infdev-parity/reference/octaves.javap 2>&1 || true
+          sed -n '1,520p' tests/infdev-parity/reference/octaves.javap || true
           echo "Classes with Octaves descriptor:"
           python3 - <<'PY'
           import zipfile
