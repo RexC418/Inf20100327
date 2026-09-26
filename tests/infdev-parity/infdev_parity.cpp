@@ -192,7 +192,7 @@ int main(int argc,char** argv) {
         std::cout<<"TERRAIN_CHUNK seed="<<seed<<"\n";
         writeI64BE(out,seed);
         for(const auto& c:TERRAIN_CHUNKS){
-            std::vector<uint8_t> blocks;
+            std::vector<uint8_t> blocks(32768, 0);
             provider.generateChunk(c[0],c[1],blocks.data());
             std::cout<<"chunk."<<c[0]<<"."<<c[1]<<".size="<<blocks.size()<<"\n";
             std::cout<<"chunk."<<c[0]<<"."<<c[1]<<".fnv64="<<hex64(fnv1a(blocks.data(),blocks.size()))<<"\n";
