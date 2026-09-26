@@ -25,7 +25,7 @@ jobs:
           submodules: recursive
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "8"
@@ -59,7 +59,8 @@ jobs:
 
       - name: Run original Java oracle
         run: |
-          java -cp tests/infdev-parity/reference/classes:tests/infdev-parity/reference/inf-20100327.jar Main \
+          java -cp tests/infdev-parity/reference/classes Main \
+            tests/infdev-parity/reference/inf-20100327.jar \
             > tests/infdev-parity/reference/java.out
 
       - name: Run C++ port
