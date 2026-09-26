@@ -11,6 +11,8 @@ on:
       - "minecraftpe/impl/util/InfdevJavaRandom.cpp"
       - "minecraftpe/impl/util/InfdevNoisePerlin.cpp"
       - "minecraftpe/impl/util/InfdevNoiseOctaves.cpp"
+      - "minecraftpe/headers/level/gen/RandomLevelSource.hpp"
+      - "minecraftpe/impl/level/gen/RandomLevelSource.cpp"
       - "tests/infdev-parity/**"
       - ".github/workflows/infdev-parity.yml"
   workflow_dispatch:
