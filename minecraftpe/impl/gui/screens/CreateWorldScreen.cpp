@@ -20,6 +20,7 @@
 #include <network/mco/MojangConnector.hpp>
 #include <cerrno>
 #include <cstdlib>
+#include <sys/time.h>
 
 CreateWorldScreen::CreateWorldScreen(CreateWorldScreenType a2, const MCOServerListItem& a3)
 	: SelectWorldScreen() {
@@ -105,14 +106,20 @@ std::string CreateWorldScreen::getLevelName() {
 		return "Level";
 	}
 }
+static int64_t getAutomatic64BitSeed() {
+	struct timeval tv;
+	gettimeofday(&tv, 0);
+	return (static_cast<int64_t>(tv.tv_sec) * 1000000LL) + static_cast<int64_t>(tv.tv_usec);
+}
+
 int64_t CreateWorldScreen::getSeed() {
 	std::string text = *this->field_148->getText();
 	if(text.size() <= 1) {
-		return getEpochTimeS();
+		return this->use64BitSeed ? getAutomatic64BitSeed() : static_cast<int64_t>(getEpochTimeS());
 	}
 	std::string s = Util::stringTrim(text);
 	if(s.size() == 0) {
-		return getEpochTimeS();
+		return this->use64BitSeed ? getAutomatic64BitSeed() : static_cast<int64_t>(getEpochTimeS());
 	}
 	char* end = 0;
 	errno = 0;
