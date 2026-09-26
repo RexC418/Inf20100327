@@ -32,6 +32,8 @@ struct CreateWorldScreen: SelectWorldScreen
 	MCOServerListItem field_170;
 	int32_t field_1B4;
 	std::shared_ptr<RestRequestJob> field_1B8;
+	Button* seedModeButton;
+	bool_t use64BitSeed;
 
 	CreateWorldScreen(CreateWorldScreenType, const MCOServerListItem&);
 	void closeScreen();
