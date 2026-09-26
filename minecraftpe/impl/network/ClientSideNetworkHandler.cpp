@@ -82,11 +82,25 @@ ClientSideNetworkHandler::ClientSideNetworkHandler(Minecraft* a2, IRakNetInstanc
 	this->loadedChunks = 0;
 	this->timeToSet = 0;
 	this->requestedChunks = 0;
+	this->streamCenterX = INT32_MIN;
+	this->streamCenterZ = INT32_MIN;
 	this->_isRealmsServer = 0;
 	this->rakPeer = a3->getPeer();
 }
 bool_t ClientSideNetworkHandler::areAllChunksLoaded() {
 	return this->loadedChunks > 255;
+}
+
+void ClientSideNetworkHandler::tick() {
+	if(!this->minecraft || !this->minecraft->player || !this->level) return;
+	const int32_t cx = Mth::floor(this->minecraft->player->posX * 0.0625);
+	const int32_t cz = Mth::floor(this->minecraft->player->posZ * 0.0625);
+	if(this->streamCenterX == INT32_MIN || this->streamCenterZ == INT32_MIN ||
+		static_cast<int64_t>(llabs(static_cast<long long>(cx) - this->streamCenterX)) >= 8 ||
+		static_cast<int64_t>(llabs(static_cast<long long>(cz) - this->streamCenterZ)) >= 8) {
+		this->arrangeRequestChunkOrder();
+		this->requestNextChunk();
+	}
 }
 
 void ClientSideNetworkHandler::arrangeRequestChunkOrder() {
