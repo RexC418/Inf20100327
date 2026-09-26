@@ -83,6 +83,11 @@ jobs:
       - name: Inspect original noise and chunk provider mappings
         run: |
           javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p -c net.minecraft.a.a.c.a 2>&1 | head -240 || true
+          javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p -c net.minecraft.a.a.c.a \
+            > tests/infdev-parity/reference/provider.javap 2>&1 || true
+          echo "Original provider density methods:"
+          grep -n -A180 -B5 "double a(double, double, double)" \
+            tests/infdev-parity/reference/provider.javap | head -220 || true
           echo "Classes with Octaves descriptor:"
           python3 - <<'PY'
           import zipfile
