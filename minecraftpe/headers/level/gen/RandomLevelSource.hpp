@@ -6,6 +6,7 @@
 #include <util/PerlinNoise.hpp>
 #include <util/InfdevJavaRandom.hpp>
 #include <util/InfdevNoiseOctaves.hpp>
+#include <level/gen/InfdevTerrainGenerator.hpp>
 /*
  * TODO:
 RandomLevelSource::SNOW_SCALE
