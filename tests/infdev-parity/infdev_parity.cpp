@@ -136,6 +136,21 @@ static void writeDoubleBE(std::ofstream& out,double v){
     for(int sh=56;sh>=0;sh-=8) out.put(static_cast<char>((u>>sh)&255));
 }
 
+static void emitDensityComponents(int64_t seed) {
+    InfdevJavaRandom random(seed);
+    InfdevNoiseOctaves noise1(random,16), noise2(random,16), noise3(random,8);
+    const double x=12550824.0,y=63.0,z=-12550824.0;
+    const double offset=y*4.0-64.0;
+    const double selector=noise3.generateNoiseOctaves(x*684.412/80.0,y*684.412/400.0,z*684.412/80.0)/2.0;
+    const double low=noise1.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
+    const double high=noise2.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
+    std::cout<<"TERRAIN_COMPONENTS seed="<<seed<<"\n";
+    std::cout<<"offset="<<hex64(bits64(offset))<<"\n";
+    std::cout<<"selector="<<hex64(bits64(selector))<<"\n";
+    std::cout<<"low="<<hex64(bits64(low))<<"\n";
+    std::cout<<"high="<<hex64(bits64(high))<<"\n";
+}
+
 struct InfdevTerrainParity {
     InfdevJavaRandom random;
     InfdevNoiseOctaves noise1,noise2,noise3;
@@ -221,6 +236,7 @@ int main(int argc,char** argv) {
         emitPerlin(seed);
         emitOctaves(seed);
 
+        emitDensityComponents(seed);
         InfdevTerrainParity provider(seed);
         std::cout<<"TERRAIN_DENSITY seed="<<seed<<"\n";
         for(size_t i=0;i<sizeof(TERRAIN_SAMPLES)/sizeof(TERRAIN_SAMPLES[0]);++i)
