@@ -1,11 +1,13 @@
 #pragma once
 #include <_types.h>
 #include <string>
+#include <cstdint>
 
 struct LevelSummary
 {
 	std::string worldName, field_4;
-	int32_t field_8, gamemode, field_10, field_14;
+	int32_t field_8, gamemode, field_14;
+	int64_t field_10; // Full 64-bit world seed from LevelData.
 
 	LevelSummary() {
 		this->worldName = "";
@@ -31,10 +33,10 @@ struct LevelSummary
 	}
 	LevelSummary& operator =(const LevelSummary& a2) {
 		this->worldName = a2.worldName;
-		this->field_4 = a2.field_4;
 		this->field_8 = a2.field_8;
-		this->gamemode = a2.gamemode;
 		this->field_10 = a2.field_10;
+		this->field_4 = a2.field_4;
+		this->gamemode = a2.gamemode;
 		this->field_14 = a2.field_14;
 		return *this;
 	}
