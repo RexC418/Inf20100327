@@ -2,6 +2,7 @@
 #include <Minecraft.hpp>
 #include <cpputils.hpp>
 #include <gui/buttons/ImageButton.hpp>
+#include <gui/buttons/Touch_TButton.hpp>
 #include <gui/elements/Label.hpp>
 #include <gui/elements/TextBox.hpp>
 #include <gui/screens/ManageMCOServerScreen.hpp>
@@ -37,6 +38,8 @@ CreateWorldScreen::CreateWorldScreen(CreateWorldScreenType a2, const MCOServerLi
 	this->field_160 = 0;
 	this->field_164 = 0;
 	this->field_168 = 0;
+	this->seedModeButton = 0;
+	this->use64BitSeed = 0; // Preserve MCPE 0.8.1's 32-bit seed behavior by default.
 	this->field_16C = a2;
 	this->field_170 = a3;
 }
@@ -115,9 +118,14 @@ int64_t CreateWorldScreen::getSeed() {
 	errno = 0;
 	long long parsed = strtoll(s.c_str(), &end, 10);
 	if(end && *end == 0 && errno == 0) {
-		return static_cast<int64_t>(parsed);
+		if(this->use64BitSeed) {
+			return static_cast<int64_t>(parsed);
+		}
+		// Legacy MCPE 0.8.1 behavior: retain only the signed low 32 bits.
+		return static_cast<int64_t>(static_cast<int32_t>(parsed));
 	}
-	return Util::hashCode(s);
+	// Non-numeric seed text retains MCPE's 32-bit hash behavior.
+	return static_cast<int64_t>(Util::hashCode(s));
 }
 bool_t CreateWorldScreen::isCreative() {
 	return this->field_134 == this->field_12C;
@@ -134,6 +142,7 @@ void CreateWorldScreen::waitForMCO() {
 }
 
 CreateWorldScreen::~CreateWorldScreen() {
+	safeRemove<Button>(this->seedModeButton);
 	safeRemove<Button>(this->field_138);
 	safeRemove<Button>(this->field_13C);
 	safeRemove<TextBox>(this->field_144);
@@ -186,6 +195,10 @@ void CreateWorldScreen::init() {
 	this->field_144 = new TextBox(this->minecraft, "Name", 16, TextBox::extendedAcsii, strlen(TextBox::extendedAcsii), 0, 0, 0);
 	this->field_144->text = this->field_170.worldName;
 	this->field_148 = new TextBox(this->minecraft, "Seed", 32, TextBox::extendedAcsii, strlen(TextBox::extendedAcsii), 0, 0, 0);
+	this->seedModeButton = new Touch::TButton(6, "Seed: 32-bit", 0);
+	this->seedModeButton->width = 100;
+	this->seedModeButton->height = 26;
+	this->seedModeButton->init(this->minecraft);
 	this->field_13C = new Touch::TButton(3, "Back", 0);
 	this->field_13C->width = 38;
 	this->field_13C->height = 18;
@@ -219,6 +232,8 @@ void CreateWorldScreen::init() {
 	this->buttons.push_back(this->field_13C);
 	this->buttons.emplace_back(this->field_12C);
 	this->buttons.emplace_back(this->field_130);
+	this->buttons.emplace_back(this->seedModeButton);
+	this->field_2C.emplace_back(this->seedModeButton);
 	this->field_2C.emplace_back(this->field_12C);
 	this->field_2C.emplace_back(this->field_130);
 	this->field_2C.push_back(this->field_13C);
@@ -272,6 +287,8 @@ void CreateWorldScreen::setupPositions() {
 	this->field_144->posY = this->field_14C->posY + 10;
 	this->field_150->posY = this->field_144->posY + this->field_144->height + 13;
 	this->field_148->posY = this->field_150->posY + 10;
+	this->seedModeButton->posX = 10;
+	this->seedModeButton->posY = this->field_148->posY + this->field_148->height + 8;
 	this->field_164->posX = this->width / 2 - this->field_164->width / 2;
 	this->field_164->posY = this->field_154->posY - 5 + this->field_158->height / 2;
 	this->field_158->setSize((float)this->width - 10.0, (float)((float)(this->field_138->posY + this->field_138->height) - (float)this->field_154->posY) + 10.0);
@@ -307,6 +324,11 @@ void CreateWorldScreen::buttonClicked(Button* a2) {
 
 	if(a2 == this->field_13C) {
 		this->closeScreen();
+		return;
+	}
+	if(a2 == this->seedModeButton) {
+		this->use64BitSeed = !this->use64BitSeed;
+		this->seedModeButton->setMsg(this->use64BitSeed ? "Seed: 64-bit" : "Seed: 32-bit");
 		return;
 	}
 	if(a2 == this->field_12C || a2 == this->field_130) {
