@@ -15,6 +15,32 @@
 #include <cpputils.hpp>
 #include <algorithm>
 
+#ifdef ANDROID
+#include <android/log.h>
+
+static uint64_t infdevRuntimeFnv1a64(const uint8_t* data, size_t length) {
+	uint64_t hash = 0xcbf29ce484222325ULL;
+	for (size_t i = 0; i < length; ++i) {
+		hash ^= static_cast<uint64_t>(data[i]);
+		hash *= 0x100000001B3ULL;
+	}
+	return hash;
+}
+
+static void infdevRuntimeLogTerrainHash(int64_t seed, int32_t chunkX, int32_t chunkZ, const uint8_t* blocks) {
+	const uint64_t hash = infdevRuntimeFnv1a64(blocks, 0x8000u);
+	__android_log_print(
+		ANDROID_LOG_INFO,
+		"Inf20100327_RT",
+		"TERRAIN_HASH seed=%lld chunkX=%d chunkZ=%d bytes=%u fnv64=%016llx",
+		static_cast<long long>(seed),
+		chunkX,
+		chunkZ,
+		static_cast<unsigned int>(0x8000u),
+		static_cast<unsigned long long>(hash)
+	);
+}
+#endif
 
 RandomLevelSource::RandomLevelSource(struct Level* a2, int64_t a3, int32_t a4, bool a5) //long, int, bool
 	: random(a3),
@@ -55,6 +81,15 @@ RandomLevelSource::RandomLevelSource(struct Level* a2, int64_t a3, int32_t a4, b
 		}
 	}
 	this->field_72D0 = new float[1024];
+
+#ifdef ANDROID
+	__android_log_print(
+		ANDROID_LOG_INFO,
+		"Inf20100327_RT",
+		"GENERATOR_INIT seed=%lld impl=InfdevTerrainGenerator",
+		static_cast<long long>(a3)
+	);
+#endif
 }
 void RandomLevelSource::buildSurfaces(int32_t a2, int32_t a3, uint8_t* a4, struct Biome** a5) {
 	float v5;			 // s17
@@ -575,6 +610,9 @@ struct LevelChunk* RandomLevelSource::getChunk(int32_t chunkX, int32_t chunkZ) {
 
 	v16 = this->level->getBiomeSource()->getBiomeBlock(16 * chunkX, 16 * chunkZ, 16, 16);
 	this->generateInfdevTerrain(chunkX, chunkZ, chunkData);
+#ifdef ANDROID
+	infdevRuntimeLogTerrainHash(this->level->getSeed(), chunkX, chunkZ, chunkData);
+#endif
 	chunk->recalcHeightmap();
 	return chunk;
 }
