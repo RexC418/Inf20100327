@@ -12,8 +12,31 @@ import java.util.Arrays;
 import java.util.Random;
 
 public final class Main {
-    private static final int[][] CHUNKS={{0,0},{1,0},{-1,0},{0,-1},{-1,-1},{37,-91},{-1024,2048}};
-    private static final double[][] SAMPLES={{0.0,0.0,0.0},{1.25,2.5,3.75},{-1.25,2.5,-3.75},{12.125,-4.5,99.75},{-1234.5,0.125,6789.25},{12550824.0,63.0,-12550824.0}};
+    private static final int[][] CHUNKS={
+        {0,0},{1,0},{-1,0},{0,-1},{-1,-1},{37,-91},{-1024,2048},
+        {784426,-784426},{784427,784426},{-784427,-784426},{1000000,-1000000},
+        {-2000000,3000000},{524287,-524288}
+    };
+
+    private static final double[][] SAMPLES={
+        {0.0,0.0,0.0},{1.25,2.5,3.75},{-1.25,2.5,-3.75},{12.125,-4.5,99.75},
+        {-1234.5,0.125,6789.25},{255.999,1.5,-255.999},{256.0,-2.75,256.125},
+        {-256.125,3.25,-256.0},{1023.5,-31.75,-1024.25},{4096.125,64.5,-4096.875},
+        {1000000.25,12.75,-1000000.5},{10000000000.25,63.0,-10000000000.5},
+        {12550823.75,63.0,-12550823.75},{12550824.0,63.0,-12550824.0},
+        {12550824.25,63.0,-12550824.25},{-12550824.5,0.0,12550824.75},
+        {2147483000.25,-2147483000.75,2147483647.25},
+        {-2147483648.0,-2147483647.75,2147483647.75}
+    };
+
+    private static final double[][] TERRAIN_SAMPLES={
+        {0.0,0.0,0.0},{0.0,15.999,0.0},{0.0,16.0,0.0},{0.0,31.5,0.0},
+        {0.0,63.0,0.0},{0.0,64.0,0.0},{0.0,127.0,0.0},{-1.0,63.0,-1.0},
+        {16.0,63.0,-16.0},{-1234.5,63.5,6789.25},{1000000.25,63.0,-1000000.5},
+        {12550823.75,63.0,-12550823.75},{12550824.0,63.0,-12550824.0},
+        {12550824.25,63.0,-12550824.25},{2147483000.25,63.0,-2147483000.75},
+        {-2147483648.0,0.0,2147483647.75}
+    };
     private static String hex64(long value) {
         return String.format("%016x", value);
     }
@@ -106,7 +129,7 @@ public final class Main {
         for (int i = 0; i < 32; ++i)
             System.out.println("nextInt." + i + "=" + random.nextInt());
 
-        int[] bounds = {1, 2, 3, 7, 16, 31, 32, 255, 256, 1024, 65535, 1048576, 2147483647};
+        int[] bounds = {1, 2, 3, 7, 16, 31, 32, 255, 256, 257, 1023, 1024, 65535, 65536, 1048575, 1048576, 1073741824, 2147483647};
         for (int bound : bounds) {
             random.setSeed(seed);
             StringBuilder line = new StringBuilder();
@@ -233,8 +256,8 @@ public final class Main {
     private static void emitDensitySamples(long seed,Constructor<?> ctor,Method density)throws Exception{
         Object provider=ctor.newInstance(null,seed);
         System.out.println("TERRAIN_DENSITY seed="+seed);
-        for(int i=0;i<SAMPLES.length;++i){
-            double value=(double)density.invoke(provider,SAMPLES[i][0],SAMPLES[i][1],SAMPLES[i][2]);
+        for(int i=0;i<TERRAIN_SAMPLES.length;++i){
+            double value=(double)density.invoke(provider,TERRAIN_SAMPLES[i][0],TERRAIN_SAMPLES[i][1],TERRAIN_SAMPLES[i][2]);
             System.out.println("sample."+i+"="+hex64(Double.doubleToRawLongBits(value)));
         }
     }
@@ -243,9 +266,9 @@ public final class Main {
         emitDensitySamples(seed,ctor,density);
         System.out.println("TERRAIN_DENSITY_GRID seed="+seed);
         writeI64BE(out,seed);
+        Object provider=ctor.newInstance(null,seed);
         for(int[] c:CHUNKS){
             writeU32BE(out,c[0]);writeU32BE(out,c[1]);
-            Object provider=ctor.newInstance(null,seed);
             for(int xc=0;xc<4;++xc)for(int zc=0;zc<4;++zc)for(int y=0;y<33;++y){
                 double x=c[0]*4.0+xc,z= c[1]*4.0+zc;
                 writeDoubleBE(out,(double)density.invoke(provider,x,y,z));
@@ -288,7 +311,14 @@ public final class Main {
         Constructor<?> providerCtor=findProviderConstructor(providerClass);
         Method density=findDensityMethod(providerClass);
         Method chunkMethod=findChunkMethod(providerClass);
-        long[] seeds={0L,1L,-1L,12345L,987654321012345678L,Long.MIN_VALUE,Long.MAX_VALUE};
+        long[] seeds={
+            0L,1L,-1L,2L,-2L,3L,-3L,42L,12345L,-12345L,
+            987654321012345678L,-987654321012345678L,
+            81985529216486895L,-81985529216486896L,
+            6148914691236517205L,-6148914691236517206L,
+            Long.MIN_VALUE,Long.MAX_VALUE,9223372036854775806L,-9223372036854775807L,
+            1311768467463790320L,2623536924927580640L
+        };
         DataOutputStream out=new DataOutputStream(new FileOutputStream(args[1]));
         out.writeInt(0x49464431);out.writeInt(seeds.length);
         for(long seed:seeds){
