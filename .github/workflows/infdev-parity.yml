@@ -42,6 +42,21 @@ jobs:
           test "$actual" = "$expected"
           test "$(stat -c%s tests/infdev-parity/reference/inf-20100327.jar)" -gt 500000
 
+      - name: Discover original terrain generator class
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          jar = "tests/infdev-parity/reference/inf-20100327.jar"
+          needle = b"net/minecraft/a/a/c/a/c"
+          with zipfile.ZipFile(jar) as z:
+              for name in z.namelist():
+                  if not name.endswith(".class"):
+                      continue
+                  data = z.read(name)
+                  if needle in data:
+                      print(name, "octavesRefs=", data.count(needle))
+          PY
+
       - name: Compile original Java oracle
         run: |
           rm -rf tests/infdev-parity/reference/classes
