@@ -19,4 +19,9 @@ public class d {
         this.x = x;
         this.z = z;
     }
+
+    public void a() {
+        // The original method only finalizes Chunk-side state. The terrain block
+        // array itself is already the exact array populated by the provider.
+    }
 }
