@@ -48,13 +48,19 @@ jobs:
           python3 - <<'PY'
           import zipfile
           jar = "tests/infdev-parity/reference/inf-20100327.jar"
+          perlin_ctor = b"(Ljava/util/Random;)V"
+          perlin_method = b"(DDD)D"
+          octave_ctor = b"(Ljava/util/Random;I)V"
+          octave_region = b"([DIIIIIIDDD)[D"
           with zipfile.ZipFile(jar) as z:
               for name in z.namelist():
                   if not name.endswith(".class"):
                       continue
                   data = z.read(name)
-                  if b"java/util/Random" in data:
-                      print("Random-ref class:", name)
+                  if perlin_ctor in data and perlin_method in data:
+                      print("Perlin-shape candidate:", name)
+                  if octave_ctor in data and octave_region in data:
+                      print("Octaves-region candidate:", name)
           PY
 
       - name: Compile original Java oracle
