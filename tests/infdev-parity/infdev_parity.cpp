@@ -32,6 +32,15 @@ static uint32_t bits32(float value) {
     return bits;
 }
 
+static uint64_t fnv1a(const uint8_t* data, size_t size) {
+    uint64_t hash = 0xcbf29ce484222325ULL;
+    for(size_t i = 0; i < size; ++i) {
+        hash ^= static_cast<uint64_t>(data[i]);
+        hash *= 0x100000001b3ULL;
+    }
+    return hash;
+}
+
 static void emitRandom(int64_t seed) {
     InfdevJavaRandom random(seed);
 
