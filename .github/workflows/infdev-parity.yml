@@ -78,6 +78,22 @@ jobs:
               print("octavesRefs=%d chunkRefs=%d size=%d %s" % (row[0], row[1], row[3], row[2]))
           PY
 
+      - name: Inspect original noise and chunk provider mappings
+        run: |
+          javap -classpath tests/infdev-parity/reference/inf-20100327.jar -p -c net.minecraft.a.a.c.a 2>&1 | head -240 || true
+          echo "Classes with Octaves descriptor:"
+          python3 - <<'PY'
+          import zipfile
+          jar = "tests/infdev-parity/reference/inf-20100327.jar"
+          ref = b"net/minecraft/a/a/c/a/c;"
+          with zipfile.ZipFile(jar) as z:
+              for name in z.namelist():
+                  if name.endswith(".class"):
+                      d=z.read(name)
+                      if ref in d:
+                          print(name, "count=", d.count(ref))
+          PY
+
       - name: Compile original Java oracle
         run: |
           rm -rf tests/infdev-parity/reference/classes
