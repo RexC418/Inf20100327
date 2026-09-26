@@ -543,6 +543,9 @@ void ClientSideNetworkHandler::handle(const RakNet::RakNetGUID&, struct ChunkDat
 					this->level->setTilesDirty(16 * pk->xPos + v35, minY, 16 * pk->zPos + v29, 16 * pk->xPos + v36, maxY, 16 * pk->zPos + v37);
 				}
 
+				// Server chunk data is authoritative. Mark the chunk as already
+				// decorated so the client never locally runs Infdev population.
+				chunk->decorated = 1;
 				chunk->unsaved = 0;
 				for(int i = 0; i < 256; ++i) {
 					if(this->chunksToSend[i].x == pk->xPos && this->chunksToSend[i].y == pk->zPos) {

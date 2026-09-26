@@ -2,6 +2,7 @@
 #include <GetTime.h>
 #include <cpputils.hpp>
 #include <level/Level.hpp>
+#include <level/gen/ChunkSource.hpp>
 #include <level/chunk/LevelChunk.hpp>
 #include <level/storage/RegionFile.hpp>
 #include <level/storage/chunk/UnsavedLevelChunk.hpp>
@@ -458,30 +459,22 @@ void ExternalFileLevelStorage::saveAll(Level* a2, std::vector<LevelChunk*>& a3) 
 }
 void ExternalFileLevelStorage::tick() {
 	if(this->level) {
-		this->field_24 = this->field_24 + 1;
+		++this->field_24;
 		if((this->field_24 % 50) == 0) {
-			for(int32_t z = 0; z != 16; ++z) {
-				for(int32_t x = 0; x != 16; ++x) {
-					LevelChunk* chunk = this->level->getChunk(x, z);
-					if(chunk && chunk->unsaved) {
-						for(auto&& el: this->field_2C) {
-							if(el.index == (x + 16 * z)) {
-								el.timeMs = RakNet::GetTimeMS();
-								goto LABEL_12;
-							}
-						}
-
-						this->field_2C.push_back({x + 16 * z, (int32_t)RakNet::GetTimeMS(), chunk});
-LABEL_12:
-						chunk->unsaved = 0;
-					}
-				}
+			// The original MCPE code scanned only chunks 0..15. That is
+			// incompatible with an unbounded Infdev-style world: every
+			// autosave tick it would force-load the old 16x16 area and evict
+			// chunks around the player. Save only chunks already resident in
+			// the active ChunkSource instead.
+			ChunkSource* source = this->level->getChunkSource();
+			if(source) {
+				source->saveAll(1);
 			}
-			this->savePendingUnsavedChunks(2);
-		}
-		if(this->field_24 - this->field_34 > 1200) {
-			this->saveEntities(this->level, 0);
-			this->level->savePlayers();
+
+			if(this->field_24 - this->field_34 > 1200) {
+				this->saveEntities(this->level, 0);
+				this->level->savePlayers();
+			}
 		}
 	}
 }

@@ -140,26 +140,36 @@ struct ChunkCache: ChunkSource
 				}
 				this->chunks[v7] = 0;
 			}
+			// First try persistent storage. A chunk that has already been
+			// generated must come back from storage instead of being regenerated.
 			v12 = this->chunkStorage;
+			emptyChunk = 0;
 			if (v12) {
 				emptyChunk = (LevelChunk*) (v12->load(this->level, x, z));
-				if (!emptyChunk) {
-					goto LABEL_19;
+				if (emptyChunk) {
+					INFDEV_CC_LOGI(
+						"STORAGE x=%d z=%d ptr=%p", x, z, (void*)emptyChunk
+					);
+					emptyChunk->field_250 = this->level->getTime();
 				}
-				INFDEV_CC_LOGI(
-					"STORAGE x=%d z=%d ptr=%p", x, z, (void*)emptyChunk
-				);
-				emptyChunk->field_250 = this->level->getTime();
-			} else {
-				emptyChunk = this->emptyChunk;
-				if (!emptyChunk) {
-					LABEL_19: generatorSource = this->generatorSource;
-					if (generatorSource) {
-						INFDEV_CC_LOGI("GENERATOR x=%d z=%d", x, z);
-						emptyChunk = (LevelChunk*) (generatorSource->getChunk(x, z));
-					} else {
-						emptyChunk = this->emptyChunk;
-					}
+			}
+
+			if (!emptyChunk) {
+				// Multiplayer clients receive authoritative chunk data from the
+				// server. They must not locally generate/populate a missing chunk,
+				// otherwise the client can create different terrain and then
+				// overwrite it when the packet arrives.
+				if (this->level && this->level->isClientMaybe) {
+					emptyChunk = new LevelChunk(this->level, x, z);
+					emptyChunk->decorated = 1;
+					INFDEV_CC_LOGI(
+						"CLIENT_EMPTY x=%d z=%d ptr=%p", x, z, (void*)emptyChunk
+					);
+				} else if (this->generatorSource) {
+					INFDEV_CC_LOGI("GENERATOR x=%d z=%d", x, z);
+					emptyChunk = (LevelChunk*) (this->generatorSource->getChunk(x, z));
+				} else {
+					emptyChunk = this->emptyChunk;
 				}
 			}
 			this->chunks[v7] = emptyChunk; // this->chunks[v7]
@@ -174,7 +184,12 @@ struct ChunkCache: ChunkSource
 			if (v16) {
 				v16->load();
 			}
-			if (!this->chunks[v7]->decorated && this->hasChunk(x + 1, z + 1) && this->hasChunk(x, z + 1) && this->hasChunk(x + 1, z)) {
+			// Population is server-side only. A client chunk is populated by
+			// the ChunkDataPacket received from the server, not by local
+			// noise/feature generation.
+			if (!this->level->isClientMaybe &&
+				!this->chunks[v7]->decorated &&
+				this->hasChunk(x + 1, z + 1) && this->hasChunk(x, z + 1) && this->hasChunk(x + 1, z)) {
 				this->postProcess(this, x, z);
 			}
 			if (this->hasChunk(x - 1, z) && !this->getChunk(x - 1, z)->decorated && this->hasChunk(x - 1, z + 1) && this->hasChunk(x, z + 1) && this->hasChunk(x - 1, z)) {
