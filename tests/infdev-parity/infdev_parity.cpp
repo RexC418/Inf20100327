@@ -1,6 +1,7 @@
 #include <util/InfdevJavaRandom.hpp>
 #include <util/InfdevNoisePerlin.hpp>
 #include <util/InfdevNoiseOctaves.hpp>
+#include <level/gen/InfdevTerrainGenerator.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -151,74 +152,6 @@ static void emitDensityComponents(int64_t seed) {
     std::cout<<"high="<<hex64(bits64(high))<<"\n";
 }
 
-struct InfdevTerrainParity {
-    InfdevJavaRandom random;
-    InfdevNoiseOctaves noise1,noise2,noise3;
-    explicit InfdevTerrainParity(int64_t seed)
-        :random(seed),noise1(random,16),noise2(random,16),noise3(random,8){}
-    double density(double x,double y,double z) const{
-        double offset=y*4.0-64.0;
-        if(offset<0.0) offset*=3.0;
-        const double selector=noise3.generateNoiseOctaves(x*684.412/80.0,y*684.412/400.0,z*684.412/80.0)/2.0;
-        if(selector<-1.0){
-            double d=noise1.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
-            return std::max(-10.0,std::min(10.0,d));
-        }
-        if(selector>1.0){
-            double d=noise2.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
-            return std::max(-10.0,std::min(10.0,d));
-        }
-        double low=noise1.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
-        double high=noise2.generateNoiseOctaves(x*684.412,y*984.412,z*684.412)/512.0-offset;
-        low=std::max(-10.0,std::min(10.0,low));
-        high=std::max(-10.0,std::min(10.0,high));
-        return low+(high-low)*((selector+1.0)/2.0);
-    }
-    void chunk(int32_t cx,int32_t cz,std::vector<uint8_t>& blocks) const{
-        blocks.assign(32768,0);
-        for(int xc=0;xc<4;++xc)for(int zc=0;zc<4;++zc){
-            double n[33][4];
-            const double x=static_cast<double>(cx)*4.0+xc;
-            const double z=static_cast<double>(cz)*4.0+zc;
-            for(int y=0;y<33;++y){
-                n[y][0]=density(x,y,z);n[y][1]=density(x,y,z+1.0);
-                n[y][2]=density(x+1.0,y,z);n[y][3]=density(x+1.0,y,z+1.0);
-            }
-            for(int yc=0;yc<32;++yc){
-                const double n00=n[yc][0],n01=n[yc][1],n10=n[yc][2],n11=n[yc][3];
-                const double p00=n[yc+1][0],p01=n[yc+1][1],p10=n[yc+1][2],p11=n[yc+1][3];
-                for(int ys=0;ys<4;++ys){
-                    const double fy=static_cast<double>(ys)/4.0;
-                    const double a=n00+(p00-n00)*fy,b=n01+(p01-n01)*fy,c=n10+(p10-n10)*fy,d=n11+(p11-n11)*fy;
-                    for(int zs=0;zs<4;++zs){
-                        const double fz=static_cast<double>(zs)/4.0;
-                        const double e=a+(c-a)*fz,g=b+(d-b)*fz;
-                        const int bx=zs+(xc<<2),bz=zc<<2;
-                        int index=(bx<<11)|(bz<<7)|(yc<<2)|ys;
-                        for(int xs=0;xs<4;++xs){
-                            const double fx=static_cast<double>(xs)/4.0;
-                            const double value=e+(g-e)*fx;
-                            const int by=(yc<<2)+ys;
-                            blocks[index]=value>0.0?1:static_cast<uint8_t>(by<64?9:0);
-                            index+=128;
-                        }
-                    }
-                }
-            }
-        }
-        for(int x=0;x<16;++x)for(int z=0;z<16;++z){
-            int index=(x<<11)|(z<<7)|127,depth=-1;
-            for(int y=127;y>=0;--y,--index){
-                if(blocks[index]==0) depth=-1;
-                else if(blocks[index]==1){
-                    if(depth==-1){depth=3;blocks[index]=static_cast<uint8_t>(y>=63?2:3);}
-                    else if(depth>0){--depth;blocks[index]=3;}
-                }
-            }
-        }
-    }
-};
-
 int main(int argc,char** argv) {
     const int64_t seeds[] = {
         0,1,-1,12345,987654321012345678LL,
@@ -237,7 +170,7 @@ int main(int argc,char** argv) {
         emitOctaves(seed);
 
         emitDensityComponents(seed);
-        InfdevTerrainParity provider(seed);
+        InfdevTerrainGenerator provider(seed);
         std::cout<<"TERRAIN_DENSITY seed="<<seed<<"\n";
         for(size_t i=0;i<sizeof(TERRAIN_SAMPLES)/sizeof(TERRAIN_SAMPLES[0]);++i)
             std::cout<<"sample."<<i<<"="<<hex64(bits64(provider.density(TERRAIN_SAMPLES[i][0],TERRAIN_SAMPLES[i][1],TERRAIN_SAMPLES[i][2])))<<"\n";
@@ -260,7 +193,7 @@ int main(int argc,char** argv) {
         writeI64BE(out,seed);
         for(const auto& c:TERRAIN_CHUNKS){
             std::vector<uint8_t> blocks;
-            provider.chunk(c[0],c[1],blocks);
+            provider.generateChunk(c[0],c[1],blocks.data());
             std::cout<<"chunk."<<c[0]<<"."<<c[1]<<".size="<<blocks.size()<<"\n";
             std::cout<<"chunk."<<c[0]<<"."<<c[1]<<".fnv64="<<hex64(fnv1a(blocks.data(),blocks.size()))<<"\n";
             writeU32BE(out,static_cast<uint32_t>(c[0]));writeU32BE(out,static_cast<uint32_t>(c[1]));
